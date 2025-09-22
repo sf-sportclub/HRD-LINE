@@ -8,7 +8,14 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>html,body{background:#f1f5f9}</style>
+  <style>
+    html,body{background:#f1f5f9}
+    .chip{ @apply inline-flex items-center rounded-full border px-2 py-0.5 text-xs }
+    .card{ @apply bg-white rounded-2xl shadow p-4 }
+    .btn{ @apply rounded-xl px-3 py-2 text-sm }
+    .btn-primary{ @apply bg-indigo-600 text-white hover:bg-indigo-700 }
+    .btn-ghost{ @apply border bg-white hover:bg-slate-50 }
+  </style>
 </head>
 <body>
   <div id="root"></div>
@@ -17,35 +24,31 @@
   const { useState, useEffect, useMemo } = React;
   const fmt = new Intl.NumberFormat('th-TH');
 
-  // ======= CONFIG =======
-  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwQOySMrUN6H-6Yg8CnbMRWA8zFDIcS-v2hwjHGuM8tJaydDbDr79lvaUEXXFOiV8rRUA/exec'; // /exec ของคุณ
+  // ====== เปลี่ยนเป็น /exec ของคุณ ======
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwHuvX1dUD8FkLZyHzqGVF-Zsb8GpmcItVTLFiWSVMBk8ON8ugfWHrHuW-igaey_UrS_g/exec';
 
   async function callApi(action, payload) {
     const res = await fetch(WEBAPP_URL, {
       method: 'POST',
-      body: JSON.stringify({ action, payload }), // ปล่อยให้เป็น text/plain
+      body: JSON.stringify({ action, payload }), // ส่งแบบ text/plain (simple request)
     });
     const text = await res.text();
-    try { return JSON.parse(text); }
-    catch { return { ok:false, message:'Bad JSON from server', raw:text }; }
+    try { return JSON.parse(text); } catch { return { ok:false, message:'Bad JSON', raw:text }; }
   }
 
-  // API แยกย่อย
-  const api = {
-    login:(u,p)=>callApi('login',{username:u,password:p}),
-    getPoints:(id)=>callApi('getPoints',{employeeId:id}),
-    redeem:(id,amt,note)=>callApi('redeem',{employeeId:id,amount:amt,note}),
-    checkEmployee:(id)=>callApi('checkEmployee',{employeeId:id}),
-    register:(pl)=>callApi('register',pl),
-    forgot:(id,email)=>callApi('forgot',{employeeId:id,email}),
-    resetPassword:(pl)=>callApi('resetPassword',pl),
-    getAnnouncements:()=>callApi('getAnnouncements',{}),
-    getRules:()=>callApi('getRules',{}),
-    adminSaveConfig:(pl)=>callApi('adminSaveConfig',pl),
-  };
+  // APIs
+  const apiLogin     = (u,p)=> callApi('login', { username:u, password:p });
+  const apiGetPoints = (id)=>  callApi('getPoints', { employeeId:id });
+  const apiRedeem    = (id,amt,note)=> callApi('redeem', { employeeId:id, amount:amt, note });
+  const apiCheckEmp  = (id)=>  callApi('checkEmployee', { employeeId:id });
+  const apiRegister  = (pl)=>  callApi('register', pl);
+  const apiForgot    = (id,email)=> callApi('forgot', { employeeId:id, email });
+  const apiChangePwd = (p)=>  callApi('changePassword', p);
+  const apiNews      = ()=>  callApi('fetchAnnouncements', {});
+  const apiRules     = ()=>  callApi('fetchRules', {});
 
-  // ========= Reusable =========
-  function PasswordInput({ value, onChange, placeholder="password" }) {
+  // ===== Reusable =====
+  function PasswordInput({ value, onChange, placeholder="password" }){
     const [show,setShow] = useState(false);
     return (
       <div className="relative">
@@ -60,46 +63,41 @@
     );
   }
 
-  // ========= Auth =========
-  function Login({ onOK, onOpenRegister, onOpenForgot, onOpenReset }) {
-    const [u,setU]=useState(''), [p,setP]=useState('');
-    const [err,setErr]=useState(''), [busy,setBusy]=useState(false);
+  // ===== Auth Screens =====
+  function Login({ onOK, onOpenRegister, onOpenForgot, onOpenChangePwd }){
+    const [u,setU]=useState(''), [p,setP]=useState(''), [err,setErr]=useState(''), [busy,setBusy]=useState(false);
     const submit = async(e)=>{
       e.preventDefault(); setErr(''); setBusy(true);
-      try{
-        const r = await api.login(u.trim(), p.trim());
-        if(!r.ok) throw new Error(r.message||'เข้าสู่ระบบไม่สำเร็จ');
-        onOK(r.user, r.history||[]);
-      }catch(ex){ setErr(String(ex.message||ex)); } finally{ setBusy(false); }
+      const r = await apiLogin(u.trim(), p.trim());
+      if(!r.ok) setErr(r.message||'เข้าสู่ระบบไม่สำเร็จ');
+      else onOK(r.user);
+      setBusy(false);
     };
     return (
       <div className="min-h-screen grid place-items-center px-4">
-        <form onSubmit={submit} className="w-full max-w-md bg-white rounded-2xl shadow p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white grid place-items-center">SF</div>
+        <form onSubmit={submit} className="w-full max-w-md card">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-10 w-10 rounded-2xl bg-indigo-600 text-white grid place-items-center">★</div>
             <div className="font-semibold">HRD Rewards</div>
           </div>
-          <div className="text-sm text-slate-500 mb-3">
-            เข้าสู่ระบบด้วย <b>username</b> / <b>password</b> จาก Sheet1 (คอลัมน์ I,J)
-          </div>
+          <div className="text-sm text-slate-500 mb-3">เข้าสู่ระบบด้วย <b>username</b> / <b>password</b> จาก Sheet1 (คอลัมน์ I,J)</div>
           <div className="space-y-3">
             <div>
               <label className="text-xs text-slate-500">username</label>
-              <input className="w-full border rounded-xl px-3 py-2 mt-1" autoComplete="off"
-                     value={u} onChange={e=>setU(e.target.value)} />
+              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={u} onChange={e=>setU(e.target.value)} />
             </div>
             <div>
               <label className="text-xs text-slate-500">password</label>
               <div className="mt-1"><PasswordInput value={p} onChange={e=>setP(e.target.value)} /></div>
             </div>
             {err && <div className="text-sm text-rose-600">{err}</div>}
-            <button className="w-full rounded-xl bg-slate-900 text-white py-2 disabled:opacity-50" disabled={busy}>
+            <button className="w-full btn btn-primary disabled:opacity-50" disabled={busy}>
               {busy? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </button>
             <div className="text-sm text-center text-slate-600">
               <button type="button" className="underline mr-3" onClick={onOpenRegister}>สมัครสมาชิก</button>
               <button type="button" className="underline mr-3" onClick={onOpenForgot}>ลืมรหัสผ่าน</button>
-              <button type="button" className="underline" onClick={onOpenReset}>เปลี่ยนรหัสผ่าน</button>
+              <button type="button" className="underline" onClick={onOpenChangePwd}>เปลี่ยนรหัสผ่าน</button>
             </div>
           </div>
         </form>
@@ -107,75 +105,68 @@
     );
   }
 
-  function Register({ onDone }) {
+  function Register({ onDone }){
     const initial = { employeeId:'', title:'', name:'', dob:'', email:'', username:'', password:'', password2:'' };
-    const [step,setStep]=useState(1), [form,setForm]=useState(initial);
-    const [exists,setExists]=useState(null);
-    const [msg,setMsg]=useState(''), [err,setErr]=useState(''), [busy,setBusy]=useState(false);
+    const [step,setStep]=useState(1);
+    const [existsInfo,setExistsInfo]=useState(null);
+    const [form,setForm]=useState(initial);
+    const [err,setErr]=useState('');
 
     const check = async()=>{
       setErr('');
-      if(!form.employeeId.trim()) return setErr('ใส่รหัสพนักงานก่อน');
-      const r = await api.checkEmployee(form.employeeId.trim());
-      if(!r.ok) return setErr(r.message||'ตรวจสอบไม่สำเร็จ');
-      setExists(r);
+      if(!form.employeeId.trim()) { setErr('ใส่รหัสพนักงานก่อน'); return; }
+      const r = await apiCheckEmp(form.employeeId.trim());
+      setExistsInfo(r);
+      setForm(f=>({ ...f, email:'', username:'', password:'', password2:'' }));
       setStep(2);
     };
 
     const submit = async()=>{
-      setErr(''); setMsg(''); setBusy(true);
-      try{
-        if(!form.username || !form.password || (form.password!==form.password2)) {
-          throw new Error('กรุณากรอก username และตั้งรหัสผ่านให้ตรงกัน');
-        }
-        const r = await api.register(form);
-        if(!r.ok) throw new Error(r.message||'สมัครไม่สำเร็จ');
-        setMsg('สมัครสำเร็จ! กำลังกลับหน้าเข้าสู่ระบบ…');
-        setTimeout(onDone, 1200); // ✅ สมัครเสร็จ เด้งกลับ
-      }catch(ex){ setErr(String(ex.message||ex)); } finally{ setBusy(false); }
+      setErr('');
+      if(!form.email || !form.username || !form.password || !form.password2){
+        setErr('กรอกข้อมูลให้ครบ'); return;
+      }
+      if(form.password !== form.password2){ setErr('ยืนยันรหัสผ่านไม่ตรงกัน'); return; }
+      const r = await apiRegister(form);
+      if(!r.ok){ setErr(r.message||'สมัครไม่สำเร็จ'); return; }
+      alert('สมัครสำเร็จ! โปรดเข้าสู่ระบบด้วยบัญชีที่เพิ่งสร้าง');
+      onDone(); // -> กลับไปหน้า Login
     };
 
     return (
       <div className="min-h-screen grid place-items-center px-4">
-        <div className="w-full max-w-lg bg-white rounded-2xl shadow p-6">
+        <div className="w-full max-w-lg card">
           <div className="font-semibold mb-3">สมัครสมาชิก</div>
 
-          {step===1 ? (
+          {step===1 && (
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-slate-500">รหัสพนักงาน *</label>
                 <input className="w-full border rounded-xl px-3 py-2 mt-1"
-                       value={form.employeeId}
-                       onChange={e=>setForm(f=>({...f,employeeId:e.target.value}))}/>
+                  value={form.employeeId}
+                  onChange={e=>setForm(f=>({ ...f, employeeId:e.target.value }))}/>
+              </div>
+              <div className="flex gap-2">
+                <button className="btn btn-primary" onClick={check}>ถัดไป</button>
+                <button className="btn btn-ghost" onClick={onDone}>ย้อนกลับ</button>
               </div>
               {err && <div className="text-sm text-rose-600">{err}</div>}
-              <div className="flex gap-2">
-                <button onClick={check} disabled={busy}
-                        className="rounded-xl bg-violet-600 text-white px-4 py-2">
-                  {busy? 'กำลังตรวจสอบ…' : 'ถัดไป'}
-                </button>
-                <button onClick={onDone} type="button" className="rounded-xl border px-4 py-2">ย้อนกลับ</button>
-              </div>
             </div>
-          ) : (
+          )}
+
+          {step===2 && (
             <div className="space-y-3">
-              {exists?.exists ? (
+              {existsInfo?.exists ? (
                 <div className="p-3 bg-emerald-50 rounded-lg text-sm">
-                  พบพนักงานในระบบ: <b>{exists.name||form.employeeId}</b><br/>กรอกอีเมล และตั้ง username / password ได้เลย
+                  พบพนักงาน: <b>{existsInfo.name||form.employeeId}</b> • ระบุอีเมลและตั้ง username / password ได้เลย
                 </div>
               ) : (
                 <div className="p-3 bg-amber-50 rounded-lg text-sm">
-                  ไม่พบรหัสนี้ในระบบ กรุณากรอกข้อมูลให้ครบ แล้วตั้ง username / password
+                  ไม่พบรหัสนี้ในระบบ กรุณากรอกข้อมูลครบ แล้วตั้ง username / password
                 </div>
               )}
 
-              <div className="text-right -mt-2 mb-1">
-                <button className="text-xs underline" onClick={()=>{ setStep(1); setErr(''); setMsg(''); }}>
-                  เปลี่ยนรหัสพนักงาน
-                </button>
-              </div>
-
-              {!exists?.exists && (
+              {!existsInfo?.exists && (
                 <>
                   <div>
                     <label className="text-xs text-slate-500">คำนำหน้า</label>
@@ -196,7 +187,7 @@
               )}
 
               <div>
-                <label className="text-xs text-slate-500">Email *</label>
+                <label className="text-xs text-slate-500">Email (ใช้รับข้อมูล/รีเซ็ตรหัส) *</label>
                 <input className="w-full border rounded-xl px-3 py-2 mt-1"
                   value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}/>
               </div>
@@ -215,13 +206,10 @@
               </div>
 
               {err && <div className="text-sm text-rose-600">{err}</div>}
-              {msg && <div className="text-sm text-emerald-600">{msg}</div>}
-
               <div className="flex gap-2">
-                <button onClick={submit} disabled={busy} className="rounded-xl bg-violet-600 text-white px-4 py-2">
-                  {busy? 'กำลังสมัคร…' : 'สมัครสมาชิก'}
-                </button>
-                <button onClick={onDone} type="button" className="rounded-xl border px-4 py-2">ย้อนกลับ</button>
+                <button className="btn btn-primary" onClick={submit}>สมัครสมาชิก</button>
+                <button className="btn btn-ghost" onClick={()=>setStep(1)}>ย้อนกลับ</button>
+                <button className="text-sm underline ml-auto" onClick={onDone}>กลับหน้าเข้าสู่ระบบ</button>
               </div>
             </div>
           )}
@@ -230,380 +218,407 @@
     );
   }
 
-  function Forgot({ onDone }) {
-    const [emp,setEmp]=useState(''), [email,setEmail]=useState('');
-    const [msg,setMsg]=useState(''), [err,setErr]=useState(''), [busy,setBusy]=useState(false);
+  function Forgot({ onDone }){
+    const [emp,setEmp]=useState(''), [email,setEmail]=useState(''), [err,setErr]=useState('');
     const submit = async()=>{
-      setErr(''); setMsg(''); setBusy(true);
-      try{
-        const r = await api.forgot(emp.trim(), email.trim());
-        if(!r.ok) throw new Error(r.message||'ดำเนินการไม่สำเร็จ');
-        setMsg('ส่งอีเมลรหัสชั่วคราวแล้ว / หากไม่พบอีเมล ลองเช็คสแปมหรือสอบถาม HRD');
-        setTimeout(onDone, 1200); // ✅ เด้งกลับ Login
-      }catch(ex){ setErr(String(ex.message||ex)); } finally{ setBusy(false); }
+      setErr('');
+      const r = await apiForgot(emp.trim(), email.trim());
+      if(!r.ok){ setErr(r.message||'ดำเนินการไม่สำเร็จ'); return; }
+      alert(r.emailed ? 'ส่งรหัสชั่วคราวไปที่อีเมลแล้ว' : 'รีเซ็ตสำเร็จ (ส่งอีเมลไม่สำเร็จ)');
+      onDone();
     };
     return (
       <div className="min-h-screen grid place-items-center px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow p-6">
-          <div className="font-semibold mb-3">ลืมรหัสผ่าน</div>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-slate-500">รหัสพนักงาน</label>
-              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={emp} onChange={e=>setEmp(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs text-slate-500">Email (ตามคอลัมน์ H)</label>
-              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={email} onChange={e=>setEmail(e.target.value)} />
-            </div>
-            {err && <div className="text-sm text-rose-600">{err}</div>}
-            {msg && <div className="text-sm text-emerald-600">{msg}</div>}
-            <div className="flex gap-2">
-              <button className="rounded-xl bg-slate-900 text-white px-4 py-2" onClick={submit} disabled={busy}>
-                {busy?'กำลังดำเนินการ...':'ส่งคำขอ'}
-              </button>
-              <button className="rounded-xl border px-4 py-2" onClick={onDone}>กลับ</button>
-            </div>
+        <div className="w-full max-w-md card space-y-3">
+          <div className="font-semibold">ลืมรหัสผ่าน</div>
+          <div>
+            <label className="text-xs text-slate-500">รหัสพนักงาน</label>
+            <input className="w-full border rounded-xl px-3 py-2 mt-1" value={emp} onChange={e=>setEmp(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">Email (ตามคอลัมน์ H)</label>
+            <input className="w-full border rounded-xl px-3 py-2 mt-1" value={email} onChange={e=>setEmail(e.target.value)} />
+          </div>
+          {err && <div className="text-sm text-rose-600">{err}</div>}
+          <div className="flex gap-2">
+            <button className="btn btn-primary" onClick={submit}>ส่งคำขอ</button>
+            <button className="btn btn-ghost" onClick={onDone}>กลับ</button>
           </div>
         </div>
       </div>
     );
   }
 
-  function ResetPassword({ onDone }) {
-    const [employeeId,setEmp]=useState('');
-    const [username,setU]=useState('');
-    const [temp,setTemp]=useState('');
-    const [new1,setN1]=useState(''), [new2,setN2]=useState('');
-    const [err,setErr]=useState(''), [msg,setMsg]=useState('');
+  function ChangePassword({ onDone }){
+    const [f,setF]=useState({ employeeId:'', username:'', oldPassword:'', newPassword:'', newPassword2:'' });
+    const [err,setErr]=useState('');
     const submit = async()=>{
-      setErr(''); setMsg('');
-      try{
-        if(!employeeId || !username || !temp) throw new Error('กรอกข้อมูลให้ครบ');
-        if(new1!==new2 || !new1) throw new Error('รหัสใหม่ไม่ตรงกัน');
-        const r = await api.resetPassword({ employeeId, username, tempPassword:temp, newPassword:new1 });
-        if(!r.ok) throw new Error(r.message||'เปลี่ยนรหัสไม่สำเร็จ');
-        setMsg('เปลี่ยนรหัสสำเร็จ กำลังกลับหน้าเข้าสู่ระบบ…');
-        setTimeout(onDone, 1200); // ✅ เด้งกลับ
-      }catch(ex){ setErr(String(ex.message||ex)); }
+      setErr('');
+      if(!f.employeeId||!f.username||!f.oldPassword||!f.newPassword||!f.newPassword2){
+        setErr('กรอกข้อมูลให้ครบ'); return;
+      }
+      if(f.newPassword !== f.newPassword2){ setErr('ยืนยันรหัสผ่านไม่ตรงกัน'); return; }
+      const r = await apiChangePwd(f);
+      if(!r.ok){ setErr(r.message||'เปลี่ยนรหัสไม่สำเร็จ'); return; }
+      alert('เปลี่ยนรหัสสำเร็จ! โปรดเข้าสู่ระบบใหม่');
+      onDone();
     };
     return (
       <div className="min-h-screen grid place-items-center px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow p-6">
-          <div className="font-semibold mb-3">เปลี่ยนรหัสผ่าน</div>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-slate-500">รหัสพนักงาน</label>
-              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={employeeId} onChange={e=>setEmp(e.target.value)}/>
+        <div className="w-full max-w-md card space-y-3">
+          <div className="font-semibold">เปลี่ยนรหัสผ่าน</div>
+          {['employeeId','username'].map(k=>(
+            <div key={k}>
+              <label className="text-xs text-slate-500">{k==='employeeId'?'รหัสพนักงาน':'Username'}</label>
+              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={f[k]} onChange={e=>setF({...f,[k]:e.target.value})}/>
             </div>
-            <div>
-              <label className="text-xs text-slate-500">Username</label>
-              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={username} onChange={e=>setU(e.target.value)}/>
-            </div>
-            <div>
-              <label className="text-xs text-slate-500">Password ชั่วคราว (จากอีเมล)</label>
-              <PasswordInput value={temp} onChange={e=>setTemp(e.target.value)}/>
-            </div>
-            <div>
-              <label className="text-xs text-slate-500">Password ใหม่</label>
-              <PasswordInput value={new1} onChange={e=>setN1(e.target.value)}/>
-            </div>
-            <div>
-              <label className="text-xs text-slate-500">Password ใหม่อีกครั้ง</label>
-              <PasswordInput value={new2} onChange={e=>setN2(e.target.value)}/>
-            </div>
-            {err && <div className="text-sm text-rose-600">{err}</div>}
-            {msg && <div className="text-sm text-emerald-600">{msg}</div>}
-            <div className="flex gap-2">
-              <button className="rounded-xl bg-slate-900 text-white px-4 py-2" onClick={submit}>ยืนยัน</button>
-              <button className="rounded-xl border px-4 py-2" onClick={onDone}>ย้อนกลับ</button>
-            </div>
+          ))}
+          <div>
+            <label className="text-xs text-slate-500">รหัสผ่านเดิม</label>
+            <div className="mt-1"><PasswordInput value={f.oldPassword} onChange={e=>setF({...f,oldPassword:e.target.value})}/></div>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">รหัสผ่านใหม่</label>
+            <div className="mt-1"><PasswordInput value={f.newPassword} onChange={e=>setF({...f,newPassword:e.target.value})}/></div>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">ยืนยันรหัสผ่านใหม่</label>
+            <div className="mt-1"><PasswordInput value={f.newPassword2} onChange={e=>setF({...f,newPassword2:e.target.value})}/></div>
+          </div>
+          {err && <div className="text-sm text-rose-600">{err}</div>}
+          <div className="flex gap-2">
+            <button className="btn btn-primary" onClick={submit}>ยืนยัน</button>
+            <button className="btn btn-ghost" onClick={onDone}>กลับ</button>
           </div>
         </div>
       </div>
     );
   }
 
-  // ========= Demo Items =========
-  const ITEMS = [
-    { id:"R002", name:"เสื้อยืด SF Sport Club", points:700, stock:24, img:"👕" },
-    { id:"R003", name:"ผ้าเช็ดตัวเซ็ต 3 ผืน",   points:550, stock:42, img:"🧼" },
-    { id:"R008", name:"เซ็ตปิงปอง (ไม้+ลูก)",  points:900, stock:10, img:"🏓" },
-    { id:"R011", name:"แก้วน้ำสแตนเลส 20oz",   points:600, stock:30, img:"🥤" },
-    { id:"R012", name:"เสื้อโปโล SF (Limited)", points:1100,stock:15, img:"🧥" },
-    { id:"R013", name:"หมวกแก๊ป SF",            points:400, stock:40, img:"🧢" },
-    { id:"R014", name:"ถุงผ้าพรีเมียม + เข็มกลัด", points:450, stock:50, img:"👜" },
+  // ===== Data for Demo Catalog =====
+  const CATALOG = [
+    { id:"R001", name:"กระเป๋าโน้ตบุ๊ค", points:1200, stock:5, img:"🧳", tags:['อุปกรณ์','premium','laptop'] },
+    { id:"R002", name:"แก้วกาแฟ Tumbler", points:450, stock:8, img:"☕", tags:['ของใช้','eco'] },
+    { id:"R003", name:"เซ็ตสมุดโน้ต", points:150, stock:30, img:"📝", tags:['เครื่องเขียน','set','notebook'] },
+    { id:"R004", name:"ร่มพับอัตโนมัติ", points:300, stock:20, img:"🌂", tags:['ของใช้'] },
+    { id:"R005", name:"เสื้อโปโล Premium", points:800, stock:15, img:"👕", tags:['เสื้อ','premium'] },
+    { id:"R006", name:"หูฟัง Bluetooth", points:2000, stock:3, img:"🎧", tags:['อิเล็กทรอนิกส์','wireless','premium'] },
   ];
 
-  function Header({ user, cartCount, onLogout, openCart, tab, setTab }) {
+  function Header({ user, onLogout, cartCount, setTab, tab }){
     return (
       <header className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white grid place-items-center">SF</div>
+            <div className="h-10 w-10 rounded-2xl bg-indigo-600 text-white grid place-items-center">★</div>
             <div className="leading-tight">
-              <div className="font-semibold">HRD Rewards</div>
-              <div className="text-xs text-slate-500">Wellness & Happy Workplace</div>
+              <div className="font-semibold">ระบบแต้มรางวัล</div>
+              <div className="text-xs text-slate-500">Premium Rewards</div>
             </div>
           </div>
           <nav className="hidden md:flex items-center gap-2">
             {[
-              {id:'home', label:'หน้าแรก'},
-              {id:'catalog', label:'แลกของ'},
-              {id:'me', label:'คะแนนของฉัน'},
-              {id:'history', label:'ประวัติ'},
-              {id:'news', label:'ประกาศ/กติกา'},
-              ...(user?.role==='admin' ? [{id:'admin',label:'Admin'}] : []),
-            ].map(m=>(
-              <button key={m.id}
-                onClick={()=>setTab(m.id)}
-                className={"px-3 py-1.5 rounded-xl text-sm border "+(tab===m.id?'bg-slate-900 text-white border-slate-900':'bg-white hover:bg-slate-50')}>
-                {m.label}
-              </button>
+              ['home','หน้าแรก'],
+              ['catalog','แลกของ'],
+              ['me','คะแนนของฉัน'],
+              ['news','ประกาศ/กติกา'],
+              ...(user?.role==='admin' ? [['admin','Admin']] : []),
+            ].map(([id,label])=>(
+              <button key={id} onClick={()=>setTab(id)}
+                className={"btn btn-ghost " + (tab===id ? 'bg-indigo-50 border-indigo-200' : '')}>{label}</button>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:block text-right mr-2">
-              <div className="text-sm font-medium">{user.name}</div>
-              <div className="text-xs text-slate-500">{user.id}</div>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:block text-right">
+              <div className="text-sm font-medium">{user?.name||'-'}</div>
+              <div className="text-xs text-slate-500">{user?.id||''}</div>
             </div>
-            <button onClick={openCart} className="relative rounded-xl border px-3 py-1.5 text-sm bg-slate-50">
-              🛒 ตะกร้า{cartCount? <span className="ml-1">({cartCount})</span> : null}
-            </button>
-            <button onClick={onLogout} className="rounded-xl border px-3 py-1.5 text-sm bg-slate-50">ออกจากระบบ</button>
+            <button onClick={onLogout} className="btn btn-ghost">ออกจากระบบ</button>
           </div>
         </div>
       </header>
     );
   }
 
-  function CheckoutModal({ open, onClose, user, cart, setItems, setUser }) {
+  function CheckoutModal({ open, cart, user, onClose }){
     if(!open) return null;
     const total = cart.reduce((s,c)=> s + c.points*c.qty, 0);
-    const doCheckout = async ()=>{
-      try{
-        const note = cart.map(c=>`${c.name} x${c.qty}`).join(', ');
-        const r = await api.redeem(user.id, total, note);
-        if(!r.ok) throw new Error(r.message||'ตัดแต้มไม่สำเร็จ');
-        const fresh = await api.getPoints(user.id);
-        if (fresh.ok) setUser(u=>({...u, points:fresh.points}));
-      }catch(ex){
-        alert('ผิดพลาดในการตัดแต้ม: '+ex);
-        return;
-      }
-      setItems(prev=> prev.map(it=>{
-        const c = cart.find(x=>x.id===it.id);
-        if(!c) return it;
-        return {...it, stock: Math.max(0, it.stock - c.qty)};
-      }));
-      onClose(true); // ปิดและเคลียร์ตะกร้า
+    const confirmRedeem = async()=>{
+      const note = cart.map(c=>`${c.name} x${c.qty}`).join(', ');
+      const r = await apiRedeem(user.id, total, note);
+      if(!r.ok){ alert(r.message||'ตัดแต้มไม่สำเร็จ'); return; }
+      alert('ดำเนินการแลกสำเร็จ');
+      onClose(true); // success
     };
     return (
-      <div className="fixed inset-0 z-30 bg-black/40 grid place-items-center p-4">
-        <div className="w-full max-w-2xl bg-white rounded-2xl shadow-lg">
-          <div className="flex items-center justify-between p-4 border-b">
+      <div className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-30">
+        <div className="w-full max-w-2xl card">
+          <div className="flex items-center justify-between border-b pb-2 mb-3">
             <div className="font-semibold">ตะกร้าแลกของ</div>
-            <button onClick={()=>onClose(false)} className="rounded-full w-8 h-8 grid place-items-center border">✕</button>
+            <button className="btn btn-ghost" onClick={()=>onClose(false)}>ปิด</button>
           </div>
-          <div className="p-4 max-h-[60vh] overflow-auto">
-            {cart.length===0 ? <div className="text-center text-slate-500 py-8">ยังไม่มีสินค้าในตะกร้า</div> :
-              <ul className="space-y-3">
-                {cart.map(c=>(
-                  <li key={c.id} className="flex items-center gap-3 border rounded-xl p-3">
-                    <div className="text-2xl">{c.img}</div>
-                    <div className="flex-1">
-                      <div className="font-medium">{c.name}</div>
-                      <div className="text-xs text-slate-500">{c.points} pts</div>
-                    </div>
-                    <div className="w-24 text-right font-semibold">{fmt.format(c.points*c.qty)} pts</div>
-                  </li>
-                ))}
-              </ul>
-            }
-          </div>
-          <div className="p-4 border-t flex items-center justify-between">
-            <div className="text-sm text-slate-600">คะแนนคุณ: <b>{fmt.format(user.points)} pts</b></div>
+          {cart.length===0 ? <div className="text-center text-slate-500 py-8">ยังไม่มีสินค้าในตะกร้า</div> :
+            <ul className="space-y-3">
+              {cart.map(c=>(
+                <li key={c.id} className="flex items-center gap-3 border rounded-xl p-3">
+                  <div className="text-2xl">{c.img}</div>
+                  <div className="flex-1">
+                    <div className="font-medium">{c.name}</div>
+                    <div className="text-xs text-slate-500">{c.points} แต้ม</div>
+                  </div>
+                  <div className="chip">x{c.qty}</div>
+                  <div className="w-28 text-right font-semibold">{fmt.format(c.points*c.qty)} แต้ม</div>
+                </li>
+              ))}
+            </ul>
+          }
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-slate-600">คะแนนคุณ: <b>{fmt.format(user.points)} แต้ม</b></div>
             <div className="text-right">
               <div className="text-sm">รวมใช้แต้ม</div>
-              <div className="text-xl font-bold">{fmt.format(total)} pts</div>
+              <div className="text-xl font-bold">{fmt.format(total)} แต้ม</div>
             </div>
           </div>
-          <div className="p-4 border-t text-right">
-            <button className="rounded-xl px-4 py-2 bg-slate-900 text-white disabled:opacity-50"
-                    disabled={cart.length===0 || total>user.points}
-                    onClick={doCheckout}>ยืนยันแลก</button>
+          <div className="mt-3 text-right">
+            <button className="btn btn-primary"
+              disabled={cart.length===0 || total>user.points}
+              onClick={confirmRedeem}>ยืนยันแลก</button>
           </div>
         </div>
       </div>
     );
   }
 
-  function NewsPage(){
-    const [announce,setAnn]=useState([]);
-    const [rules,setRules]=useState([]);
-    useEffect(()=>{
-      (async()=>{
-        const A = await api.getAnnouncements(); if(A.ok) setAnn(A.items||[]);
-        const R = await api.getRules(); if(R.ok) setRules(R.items||[]);
-      })();
-    },[]);
-    return (
-      <div className="space-y-4">
-        <section className="bg-white rounded-2xl shadow p-4">
-          <div className="font-semibold mb-3">ประกาศล่าสุด</div>
-          {announce.length===0 ? <div className="text-sm text-slate-500">ยังไม่มีประกาศ</div> :
-            <div className="space-y-3">
-              {announce.map((a,i)=>(
-                <div key={i} className="border rounded-xl p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="text-xl">📣</div>
-                    <div className="flex-1">
-                      <div className="font-medium">{a.title}</div>
-                      <div className="text-sm text-slate-600">{a.body}</div>
-                      <div className="text-xs text-slate-400 mt-1">{a.ts||''}</div>
-                      {a.img ? <img src={a.img} alt="" className="mt-2 max-h-40 rounded-lg" /> : null}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          }
-        </section>
-
-        <section className="bg-white rounded-2xl shadow p-4">
-          <div className="font-semibold mb-3">กติกาการใช้แต้มรางวัล</div>
-          <div className="space-y-2">
-            {rules.map((r,i)=>(
-              <div key={i} className="border rounded-xl p-3">
-                <div className="font-medium">{r.title}</div>
-                <div className="text-sm text-slate-600">{r.body}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="bg-white rounded-2xl shadow p-4">
-          <div className="font-semibold mb-3">ข้อมูลเพิ่มเติม</div>
-          <div className="grid md:grid-cols-2 gap-3 text-sm text-slate-700">
-            <div className="border rounded-xl p-3">
-              <div className="font-medium mb-1">การแจ้งเตือน</div>
-              <div>ระบบจะส่งการแจ้งเตือนเมื่อมีการเปลี่ยนแปลงสำคัญ รวมถึงการหมดอายุของแต้ม</div>
-            </div>
-            <div className="border rounded-xl p-3">
-              <div className="font-medium mb-1">เวลาอัพเดท</div>
-              <div>ระบบอัพเดทข้อมูลแต้มรางวัลทุกวันเวลา 09:00 น. และ 18:00 น.</div>
-            </div>
-            <div className="border rounded-xl p-3">
-              <div className="font-medium mb-1">ช่วงเวลาแลกของ</div>
-              <div>สามารถแลกของรางวัลได้ทุกวัน เวลา 08:00 - 17:00 น. (วันจันทร์-ศุกร์)</div>
-            </div>
-            <div className="border rounded-xl p-3">
-              <div className="font-medium mb-1">ติดต่อสอบถาม</div>
-              <div>หากมีคำถาม โปรดติดต่อ คุณเจ 3CX : 2058</div>
-            </div>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
   function App(){
-    const [mode,setMode] = useState('login'); // login | register | forgot | reset | app
+    const [mode,setMode]=useState('login');  // login | register | forgot | changePwd | app
     const [user,setUser]=useState(null);
-    const [tab,setTab]=useState('home'); // home | catalog | me | history | news | admin
-    const [items,setItems]=useState(ITEMS);
+    const [tab,setTab]=useState('home');
     const [cart,setCart]=useState([]);
     const [openCart,setOpenCart]=useState(false);
+    const [news,setNews]=useState([]);     // Sheet4
+    const [rules,setRules]=useState([]);   // Sheet5
+    const [items,setItems]=useState(CATALOG);
 
-    // Mock หน้าต่าง ๆ (home/me/history/admin) ใช้ UI เดิมของคุณหรือข้อความ placeholder
-    const Home = () => (
-      <div className="bg-white rounded-2xl shadow p-4">
-        <div className="font-semibold">ยินดีต้อนรับ, {user.name}</div>
-        <div className="text-sm text-slate-600 mt-1">คะแนนคงเหลือ: <b>{fmt.format(user.points)} pts</b></div>
-      </div>
-    );
-
-    const Catalog = () => (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map(r=>(
-          <div key={r.id} className="rounded-2xl border p-4 flex flex-col">
-            <div className="flex items-center gap-3">
-              <div className="text-3xl">{r.img}</div>
-              <div className="flex-1">
-                <div className="font-medium">{r.name}</div>
-                <div className="text-xs text-slate-500 mt-1 flex gap-2">
-                  <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">{r.points} pts</span>
-                  <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">สต็อก {r.stock}</span>
-                </div>
-              </div>
-            </div>
-            <button onClick={()=>{
-              setCart(prev=>{
-                const has = prev.find(x=>x.id===r.id);
-                if(has) return prev.map(x=> x.id===r.id ? {...x, qty:Math.min(x.qty+1, r.stock)} : x);
-                return [...prev, {...r, qty:1}];
-              });
-            }} disabled={r.stock<=0}
-            className="mt-3 rounded-xl px-3 py-2 text-sm bg-slate-900 text-white disabled:opacity-40">
-              {r.stock>0? 'เพิ่มใส่ตะกร้า' : 'หมดชั่วคราว'}
-            </button>
-          </div>
-        ))}
-      </div>
-    );
-
-    const Me = () => (
-      <div className="bg-white rounded-2xl shadow p-4">
-        <div className="font-semibold mb-2">โปรไฟล์</div>
-        <div className="text-sm text-slate-700">รหัส: {user.id} • ชื่อ: {user.name}</div>
-        <div className="text-sm text-slate-700">คะแนนคงเหลือ: {fmt.format(user.points)} pts</div>
-      </div>
-    );
-
-    const History = () => (
-      <div className="bg-white rounded-2xl shadow p-4 text-sm text-slate-600">ประวัติการรับ/ใช้แต้ม (ตัวอย่าง)</div>
-    );
-
-    const Admin = () => (
-      <div className="bg-white rounded-2xl shadow p-4">
-        <div className="font-semibold mb-2">Admin Panel</div>
-        <div className="text-sm text-slate-600">ปรับแต่งได้เฉพาะผู้ใช้ role: admin</div>
-      </div>
-    );
+    useEffect(()=>{
+      if(mode==='app'){
+        apiNews().then(r=>{ if(r.ok) setNews(r.items||[]); });
+        apiRules().then(r=>{ if(r.ok) setRules(r.items||[]); });
+      }
+    }, [mode]);
 
     if(mode==='login') return (
       <Login
-        onOK={(u)=>{ setUser(u); setMode('app'); }}
+        onOK={(u)=>{ setUser(u); setMode('app'); setTab('home'); }}
         onOpenRegister={()=>setMode('register')}
         onOpenForgot={()=>setMode('forgot')}
-        onOpenReset={()=>setMode('reset')}
+        onOpenChangePwd={()=>setMode('changePwd')}
       />
     );
     if(mode==='register') return <Register onDone={()=>setMode('login')} />;
     if(mode==='forgot')   return <Forgot onDone={()=>setMode('login')} />;
-    if(mode==='reset')    return <ResetPassword onDone={()=>setMode('login')} />;
+    if(mode==='changePwd')return <ChangePassword onDone={()=>setMode('login')} />;
+
+    const cartCount = cart.reduce((s,c)=>s+c.qty,0);
+
+    const Home = ()=>(
+      <div className="space-y-4">
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div className="card"><div className="text-sm text-slate-500">แต้มคงเหลือ</div><div className="text-3xl font-bold mt-1">{fmt.format(user.points)}</div></div>
+          <div className="card"><div className="text-sm text-slate-500">EXP สะสม</div><div className="text-3xl font-bold mt-1">{fmt.format(Math.max(0,user.tierPoints||0))}</div></div>
+          <div className="card"><div className="text-sm text-slate-500">ภารกิจที่เปิด</div><div className="text-3xl font-bold mt-1">4</div></div>
+        </div>
+
+        <div className="card">
+          <div className="font-semibold mb-2">ข่าวล่าสุด</div>
+          {!news.length ? <div className="text-sm text-slate-500">ไม่มีประกาศ</div> :
+            <ul className="space-y-3">
+              {news.map((n,i)=>(
+                <li key={i} className="border rounded-xl p-3 flex gap-3">
+                  <div className="text-2xl">📣</div>
+                  <div className="flex-1">
+                    <div className="font-medium">{n.title}</div>
+                    <div className="text-sm text-slate-600">{n.content}</div>
+                    <div className="text-xs text-slate-400 mt-1">{n.createdAt||''}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          }
+        </div>
+      </div>
+    );
+
+    const Catalog = ()=>(
+      <div className="space-y-4">
+        <div className="card flex items-center justify-between">
+          <div>คะแนนคุณ: <b>{fmt.format(user.points)} แต้ม</b></div>
+          <button className="btn btn-primary" onClick={()=>setOpenCart(true)}>🛒 ตะกร้า {cartCount? `(${cartCount})`:''}</button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map(r=>(
+            <div key={r.id} className="card flex flex-col">
+              <div className="flex items-center gap-3">
+                <div className="text-3xl">{r.img}</div>
+                <div className="flex-1">
+                  <div className="font-medium">{r.name}</div>
+                  <div className="text-xs text-slate-500 mt-1 flex gap-2 flex-wrap">
+                    <span className="chip">{r.points} แต้ม</span>
+                    <span className="chip">คงเหลือ {r.stock}</span>
+                    {r.tags.slice(0,3).map((t,i)=>(<span key={i} className="chip">{t}</span>))}
+                  </div>
+                </div>
+              </div>
+              <button disabled={r.stock<=0}
+                onClick={()=>{
+                  setCart(prev=>{
+                    const has=prev.find(x=>x.id===r.id);
+                    if(has) return prev.map(x=>x.id===r.id?({...x, qty:Math.min(x.qty+1, r.stock)}):x);
+                    return [...prev, {...r, qty:1}];
+                  });
+                }}
+                className={"mt-3 btn "+(r.stock>0?'btn-primary':'btn-ghost opacity-50')}>{r.stock>0?'เพิ่มใส่ตะกร้า':'หมดชั่วคราว'}</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
+    const Me = ()=>(
+      <div className="space-y-4">
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-slate-500">พนักงาน</div>
+              <div className="text-xl font-semibold">{user.name} • {user.id}</div>
+              <div className="text-sm text-slate-500">สาขา: {user.branch||'-'} • ตำแหน่ง: {user.role}</div>
+            </div>
+            <div className="chip">คะแนน {fmt.format(user.points)}</div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="font-semibold mb-2">ไอเดียเก็บแต้ม</div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {['เข้าร่วมกิจกรรมสโมสรวิ่ง (+60–200)','แบบทดสอบรายเดือน (+80)','แชร์กิจกรรมทีมใน LINE (+20/ครั้ง)'].map((t,i)=>(
+              <div key={i} className="border rounded-xl p-3 text-sm">{t}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
+    const News = ()=>(
+      <div className="space-y-4">
+        <div className="card">
+          <div className="font-semibold mb-2">ประกาศล่าสุด</div>
+          {!news.length ? <div className="text-sm text-slate-500">ไม่มีประกาศ</div> :
+            <ul className="space-y-3">
+              {news.map((n,i)=>(
+                <li key={i} className="border rounded-xl p-3 flex gap-3">
+                  <div className="text-2xl">📢</div>
+                  <div className="flex-1">
+                    <div className="font-semibold">{n.title}</div>
+                    <div className="text-sm text-slate-600">{n.content}</div>
+                    {n.imageUrl ? <img src={n.imageUrl} alt="" className="mt-2 rounded-lg max-h-40 object-cover" /> : null}
+                    <div className="text-xs text-slate-400 mt-1">เผยแพร่: {n.createdAt||''}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          }
+        </div>
+
+        <div className="card">
+          <div className="font-semibold mb-2">กติกาการใช้แต้มรางวัล</div>
+          {!rules.length ? <div className="text-sm text-slate-500">ไม่มีข้อมูล</div> :
+            <ul className="space-y-2">
+              {rules.map((r,i)=>(
+                <li key={i} className="border rounded-xl p-3">
+                  <div className="font-medium">{r.title}</div>
+                  <div className="text-sm text-slate-600">{r.content}</div>
+                </li>
+              ))}
+            </ul>
+          }
+        </div>
+
+        <div className="card">
+          <div className="font-semibold mb-2">ข้อมูลเพิ่มเติม</div>
+          <div className="grid md:grid-cols-2 gap-3 text-sm">
+            <div className="border rounded-xl p-3">
+              <div className="font-medium">การแจ้งเตือน</div>
+              <div className="text-slate-600">ระบบจะส่งการแจ้งเตือนเมื่อมีการเปลี่ยนแปลงสำคัญ รวมถึงการหมดอายุของแต้ม</div>
+            </div>
+            <div className="border rounded-xl p-3">
+              <div className="font-medium">เวลาอัพเดท</div>
+              <div className="text-slate-600">ระบบอัพเดทข้อมูลแต้มรางวัลทุกวันเวลา 09:00 น. และ 18:00 น.</div>
+            </div>
+            <div className="border rounded-xl p-3">
+              <div className="font-medium">ช่วงเวลาแลกของ</div>
+              <div className="text-slate-600">สามารถแลกของรางวัลได้ทุกวัน เวลา 08:00 - 17:00 น. (วันจันทร์-ศุกร์)</div>
+            </div>
+            <div className="border rounded-xl p-3">
+              <div className="font-medium">ติดต่อสอบถาม</div>
+              <div className="text-slate-600">หากมีคำถาม โปรดติดต่อ คุณเจ 3CX : 2058</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    const Admin = ()=>(
+      <div className="space-y-4">
+        <div className="grid sm:grid-cols-4 gap-3">
+          <div className="card"><div className="text-sm text-slate-500">สินค้าทั้งหมด</div><div className="text-3xl font-bold">{items.length}</div></div>
+          <div className="card"><div className="text-sm text-slate-500">หมวดหมู่</div><div className="text-3xl font-bold">5</div></div>
+          <div className="card"><div className="text-sm text-slate-500">สต็อกรวม</div><div className="text-3xl font-bold">{items.reduce((s,x)=>s+x.stock,0)}</div></div>
+          <div className="card"><div className="text-sm text-slate-500">แต้มเฉลี่ย</div><div className="text-3xl font-bold">{Math.round(items.reduce((s,x)=>s+x.points,0)/items.length)}</div></div>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center justify-between mb-2">
+            <div className="font-semibold">รายการสินค้า</div>
+          </div>
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="p-2 text-left">ชื่อ</th>
+                  <th className="p-2 text-left">แต้ม</th>
+                  <th className="p-2 text-left">สต็อก</th>
+                  <th className="p-2 text-left">แท็ก</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map(it=>(
+                  <tr key={it.id} className="border-t">
+                    <td className="p-2">{it.img} {it.name}</td>
+                    <td className="p-2">{it.points}</td>
+                    <td className="p-2">{it.stock}</td>
+                    <td className="p-2">{it.tags.join(', ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
 
     return (
       <div>
-        <Header
-          user={user}
-          cartCount={cart.reduce((s,c)=>s+c.qty,0)}
-          onLogout={()=>{ setMode('login'); setUser(null); setCart([]); }}
-          openCart={()=>setOpenCart(true)}
-          tab={tab}
-          setTab={setTab}
-        />
-
+        <Header user={user} onLogout={()=>{ setMode('login'); setUser(null); setCart([]); }}
+                cartCount={cartCount} setTab={setTab} tab={tab}/>
         <main className="max-w-6xl mx-auto px-4 py-6">
           {tab==='home' && <Home/>}
           {tab==='catalog' && <Catalog/>}
           {tab==='me' && <Me/>}
-          {tab==='history' && <History/>}
-          {tab==='news' && <NewsPage/>}
-          {tab==='admin' && (user.role==='admin' ? <Admin/> : <div className="text-sm text-rose-600">จำกัดสิทธิ์</div>)}
+          {tab==='news' && <News/>}
+          {tab==='admin' && (user?.role==='admin' ? <Admin/> : <div className="card">ไม่อนุญาต</div>)}
         </main>
 
-        <CheckoutModal open={openCart} onClose={(ok)=>{ setOpenCart(false); if(ok) setCart([]); }}
-          user={user} cart={cart} setItems={setItems} setUser={setUser} />
+        <CheckoutModal open={openCart} cart={cart} user={user}
+          onClose={(ok)=>{ setOpenCart(false); if(ok){ setCart([]); apiGetPoints(user.id).then(r=>{ if(r.ok) setUser(u=>({...u,points:r.points}))}); } }}/>
       </div>
     );
   }
