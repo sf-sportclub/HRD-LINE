@@ -8,41 +8,44 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    html,body{background:#f5f7fb}
-    .chip{ @apply inline-flex items-center rounded-full border px-2 py-0.5 text-xs border-slate-300 text-slate-700; }
-  </style>
+  <style>html,body{background:#f1f5f9}</style>
 </head>
 <body>
   <div id="root"></div>
 
   <script type="text/babel">
-  const { useState, useMemo } = React;
+  const { useState, useEffect, useMemo } = React;
   const fmt = new Intl.NumberFormat('th-TH');
 
-  /* ====== URL Apps Script (แก้เป็นของคุณ) ====== */
-  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxDGSsPsIgyXhQZ4EuHdfshDQyMRK_DfNKSswtRjrMnM98lV_aVE_H6i9Na6vlNbmVC1w/exec';
+  // ======= CONFIG =======
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwQOySMrUN6H-6Yg8CnbMRWA8zFDIcS-v2hwjHGuM8tJaydDbDr79lvaUEXXFOiV8rRUA/exec'; // /exec ของคุณ
 
-  /* ====== fetch แบบ simple request ====== */
-  async function callApi(action, payload){
-    const res = await fetch(WEBAPP_URL, { method:'POST', body: JSON.stringify({ action, payload }) });
+  async function callApi(action, payload) {
+    const res = await fetch(WEBAPP_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action, payload }), // ปล่อยให้เป็น text/plain
+    });
     const text = await res.text();
-    try{ return JSON.parse(text); }catch{ return { ok:false, message:'Bad JSON', raw:text }; }
+    try { return JSON.parse(text); }
+    catch { return { ok:false, message:'Bad JSON from server', raw:text }; }
   }
 
-  // ---- API adapters ----
-  const apiLogin      = (u,p)             => callApi('login',        { username:u, password:p });
-  const apiGetPoints  = (id)              => callApi('getPoints',    { employeeId:id });
-  const apiRedeem     = (id,amt,note)     => callApi('redeem',       { employeeId:id, amount:amt, note });
-  const apiCheckEmp   = (id)              => callApi('checkEmployee',{ employeeId:id });
-  const apiRegister   = (pl)              => callApi('register',     pl);
-  const apiForgot     = (id,email)        => callApi('forgot',       { employeeId:id, email });
-  const apiChangePass = (id,u,oldp,newp)  => callApi('changePassword',{ employeeId:id, username:u, oldPassword:oldp, newPassword:newp });
-  const apiSaveConfig = (cfg)             => callApi('adminSaveConfig', cfg); // ถ้าอยากบันทึกจริง
+  // API แยกย่อย
+  const api = {
+    login:(u,p)=>callApi('login',{username:u,password:p}),
+    getPoints:(id)=>callApi('getPoints',{employeeId:id}),
+    redeem:(id,amt,note)=>callApi('redeem',{employeeId:id,amount:amt,note}),
+    checkEmployee:(id)=>callApi('checkEmployee',{employeeId:id}),
+    register:(pl)=>callApi('register',pl),
+    forgot:(id,email)=>callApi('forgot',{employeeId:id,email}),
+    resetPassword:(pl)=>callApi('resetPassword',pl),
+    getAnnouncements:()=>callApi('getAnnouncements',{}),
+    getRules:()=>callApi('getRules',{}),
+    adminSaveConfig:(pl)=>callApi('adminSaveConfig',pl),
+  };
 
-  /* ====== Components ทั่วไป ====== */
-  const Badge = ({children}) => <span className="chip">{children}</span>;
-  function PasswordInput({ value, onChange, placeholder="password" }){
+  // ========= Reusable =========
+  function PasswordInput({ value, onChange, placeholder="password" }) {
     const [show,setShow] = useState(false);
     return (
       <div className="relative">
@@ -57,54 +60,46 @@
     );
   }
 
-  /* ====== Login / Register / Forgot / ChangePass ====== */
-  function Login({ onOK, onOpenRegister, onOpenForgot, onOpenChangePass }){
-    const [u,setU]=useState(''), [p,setP]=useState(''), [err,setErr]=useState(''), [busy,setBusy]=useState(false);
-
+  // ========= Auth =========
+  function Login({ onOK, onOpenRegister, onOpenForgot, onOpenReset }) {
+    const [u,setU]=useState(''), [p,setP]=useState('');
+    const [err,setErr]=useState(''), [busy,setBusy]=useState(false);
     const submit = async(e)=>{
       e.preventDefault(); setErr(''); setBusy(true);
       try{
-        // 1) พยายามล็อกอินผ่าน Backend
-        const r = await apiLogin(u.trim(), p.trim());
-        if(r.ok){
-          onOK(r.user, r.history||[]);
-          return;
-        }
-        // 2) Fallback: Admin เดโม่ฝั่งหน้าเว็บ
-        if(u.trim()==='admin1959' && p.trim()==='1959'){
-          const demoAdmin = { id:'SF-ADMIN', username:'admin1959', name:'ระบบแอดมิน', branch:'Head Office', role:'admin', points: 999999, tierPoints: 99999, exp: '2099-12-31' };
-          onOK(demoAdmin, []);
-          return;
-        }
-        throw new Error(r.message||'เข้าสู่ระบบไม่สำเร็จ');
-      }catch(ex){ setErr(String(ex)); } finally{ setBusy(false); }
+        const r = await api.login(u.trim(), p.trim());
+        if(!r.ok) throw new Error(r.message||'เข้าสู่ระบบไม่สำเร็จ');
+        onOK(r.user, r.history||[]);
+      }catch(ex){ setErr(String(ex.message||ex)); } finally{ setBusy(false); }
     };
-
     return (
       <div className="min-h-screen grid place-items-center px-4">
         <form onSubmit={submit} className="w-full max-w-md bg-white rounded-2xl shadow p-6">
           <div className="flex items-center gap-2 mb-3">
-            <div className="h-10 w-10 rounded-2xl bg-violet-600 text-white grid place-items-center">★</div>
+            <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white grid place-items-center">SF</div>
             <div className="font-semibold">HRD Rewards</div>
           </div>
-          <div className="text-sm text-slate-500 mb-3">เข้าสู่ระบบด้วย <b>username</b>/<b>password</b> จาก Sheet1 (คอลัมน์ I, J)</div>
+          <div className="text-sm text-slate-500 mb-3">
+            เข้าสู่ระบบด้วย <b>username</b> / <b>password</b> จาก Sheet1 (คอลัมน์ I,J)
+          </div>
           <div className="space-y-3">
             <div>
               <label className="text-xs text-slate-500">username</label>
-              <input className="w-full border rounded-xl px-3 py-2 mt-1" autoComplete="off" value={u} onChange={e=>setU(e.target.value)} />
+              <input className="w-full border rounded-xl px-3 py-2 mt-1" autoComplete="off"
+                     value={u} onChange={e=>setU(e.target.value)} />
             </div>
             <div>
               <label className="text-xs text-slate-500">password</label>
               <div className="mt-1"><PasswordInput value={p} onChange={e=>setP(e.target.value)} /></div>
             </div>
             {err && <div className="text-sm text-rose-600">{err}</div>}
-            <button className="w-full rounded-xl bg-violet-600 text-white py-2 disabled:opacity-50" disabled={busy}>
+            <button className="w-full rounded-xl bg-slate-900 text-white py-2 disabled:opacity-50" disabled={busy}>
               {busy? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </button>
             <div className="text-sm text-center text-slate-600">
               <button type="button" className="underline mr-3" onClick={onOpenRegister}>สมัครสมาชิก</button>
               <button type="button" className="underline mr-3" onClick={onOpenForgot}>ลืมรหัสผ่าน</button>
-              <button type="button" className="underline" onClick={onOpenChangePass}>เปลี่ยนรหัสผ่าน</button>
+              <button type="button" className="underline" onClick={onOpenReset}>เปลี่ยนรหัสผ่าน</button>
             </div>
           </div>
         </form>
@@ -112,71 +107,121 @@
     );
   }
 
-  function Register({ onDone }){
+  function Register({ onDone }) {
     const initial = { employeeId:'', title:'', name:'', dob:'', email:'', username:'', password:'', password2:'' };
     const [step,setStep]=useState(1), [form,setForm]=useState(initial);
-    const [exists,setExists]=useState(null); // {exists:bool, name?:string}
+    const [exists,setExists]=useState(null);
     const [msg,setMsg]=useState(''), [err,setErr]=useState(''), [busy,setBusy]=useState(false);
 
     const check = async()=>{
-      setErr(''); if(!form.employeeId.trim()) return setErr('ใส่รหัสพนักงานก่อน');
-      const r = await apiCheckEmp(form.employeeId.trim()); setExists(r); setStep(2);
+      setErr('');
+      if(!form.employeeId.trim()) return setErr('ใส่รหัสพนักงานก่อน');
+      const r = await api.checkEmployee(form.employeeId.trim());
+      if(!r.ok) return setErr(r.message||'ตรวจสอบไม่สำเร็จ');
+      setExists(r);
+      setStep(2);
     };
 
     const submit = async()=>{
       setErr(''); setMsg(''); setBusy(true);
       try{
-        const r = await apiRegister(form);
+        if(!form.username || !form.password || (form.password!==form.password2)) {
+          throw new Error('กรุณากรอก username และตั้งรหัสผ่านให้ตรงกัน');
+        }
+        const r = await api.register(form);
         if(!r.ok) throw new Error(r.message||'สมัครไม่สำเร็จ');
-        setMsg('สมัครสำเร็จ! กำลังกลับไปหน้าเข้าสู่ระบบ…');
-        setTimeout(onDone, 1200);
-      }catch(ex){ setErr(String(ex)); } finally{ setBusy(false); }
+        setMsg('สมัครสำเร็จ! กำลังกลับหน้าเข้าสู่ระบบ…');
+        setTimeout(onDone, 1200); // ✅ สมัครเสร็จ เด้งกลับ
+      }catch(ex){ setErr(String(ex.message||ex)); } finally{ setBusy(false); }
     };
 
     return (
       <div className="min-h-screen grid place-items-center px-4">
         <div className="w-full max-w-lg bg-white rounded-2xl shadow p-6">
           <div className="font-semibold mb-3">สมัครสมาชิก</div>
+
           {step===1 ? (
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-slate-500">รหัสพนักงาน *</label>
                 <input className="w-full border rounded-xl px-3 py-2 mt-1"
-                  value={form.employeeId} onChange={e=>setForm(f=>({...f,employeeId:e.target.value}))}/>
+                       value={form.employeeId}
+                       onChange={e=>setForm(f=>({...f,employeeId:e.target.value}))}/>
               </div>
-              <button onClick={check} className="rounded-xl bg-violet-600 text-white px-4 py-2">ถัดไป</button>
               {err && <div className="text-sm text-rose-600">{err}</div>}
+              <div className="flex gap-2">
+                <button onClick={check} disabled={busy}
+                        className="rounded-xl bg-violet-600 text-white px-4 py-2">
+                  {busy? 'กำลังตรวจสอบ…' : 'ถัดไป'}
+                </button>
+                <button onClick={onDone} type="button" className="rounded-xl border px-4 py-2">ย้อนกลับ</button>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
               {exists?.exists ? (
-                <div className="p-3 bg-emerald-50 rounded-lg text-sm">พบพนักงานในระบบ: <b>{exists.name||form.employeeId}</b></div>
+                <div className="p-3 bg-emerald-50 rounded-lg text-sm">
+                  พบพนักงานในระบบ: <b>{exists.name||form.employeeId}</b><br/>กรอกอีเมล และตั้ง username / password ได้เลย
+                </div>
               ) : (
-                <div className="p-3 bg-amber-50 rounded-lg text-sm">ไม่พบรหัสนี้ในระบบ กรุณากรอกข้อมูลให้ครบ</div>
+                <div className="p-3 bg-amber-50 rounded-lg text-sm">
+                  ไม่พบรหัสนี้ในระบบ กรุณากรอกข้อมูลให้ครบ แล้วตั้ง username / password
+                </div>
               )}
+
+              <div className="text-right -mt-2 mb-1">
+                <button className="text-xs underline" onClick={()=>{ setStep(1); setErr(''); setMsg(''); }}>
+                  เปลี่ยนรหัสพนักงาน
+                </button>
+              </div>
+
               {!exists?.exists && (
                 <>
-                  <div><label className="text-xs text-slate-500">คำนำหน้า</label>
-                    <input className="w-full border rounded-xl px-3 py-2 mt-1" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}/></div>
-                  <div><label className="text-xs text-slate-500">ชื่อ-นามสกุล</label>
-                    <input className="w-full border rounded-xl px-3 py-2 mt-1" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></div>
-                  <div><label className="text-xs text-slate-500">วันเกิด (yyyy-mm-dd)</label>
-                    <input className="w-full border rounded-xl px-3 py-2 mt-1" placeholder="1990-01-31" value={form.dob} onChange={e=>setForm(f=>({...f,dob:e.target.value}))}/></div>
+                  <div>
+                    <label className="text-xs text-slate-500">คำนำหน้า</label>
+                    <input className="w-full border rounded-xl px-3 py-2 mt-1"
+                      value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))}/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">ชื่อ-นามสกุล</label>
+                    <input className="w-full border rounded-xl px-3 py-2 mt-1"
+                      value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">วันเกิด (yyyy-mm-dd)</label>
+                    <input className="w-full border rounded-xl px-3 py-2 mt-1" placeholder="1990-01-31"
+                      value={form.dob} onChange={e=>setForm(f=>({...f,dob:e.target.value}))}/>
+                  </div>
                 </>
               )}
-              <div><label className="text-xs text-slate-500">Email *</label>
-                <input className="w-full border rounded-xl px-3 py-2 mt-1" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}/></div>
-              <div><label className="text-xs text-slate-500">ตั้ง username *</label>
-                <input className="w-full border rounded-xl px-3 py-2 mt-1" value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))}/></div>
-              <div><label className="text-xs text-slate-500">ตั้ง password *</label>
-                <div className="mt-1"><PasswordInput value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))}/></div></div>
-              <div><label className="text-xs text-slate-500">ยืนยัน password *</label>
-                <div className="mt-1"><PasswordInput value={form.password2} onChange={e=>setForm(f=>({...f,password2:e.target.value}))}/></div></div>
+
+              <div>
+                <label className="text-xs text-slate-500">Email *</label>
+                <input className="w-full border rounded-xl px-3 py-2 mt-1"
+                  value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}/>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500">ตั้ง username *</label>
+                <input className="w-full border rounded-xl px-3 py-2 mt-1"
+                  value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))}/>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500">ตั้ง password *</label>
+                <div className="mt-1"><PasswordInput value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))}/></div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500">ยืนยัน password *</label>
+                <div className="mt-1"><PasswordInput value={form.password2} onChange={e=>setForm(f=>({...f,password2:e.target.value}))}/></div>
+              </div>
+
               {err && <div className="text-sm text-rose-600">{err}</div>}
               {msg && <div className="text-sm text-emerald-600">{msg}</div>}
+
               <div className="flex gap-2">
-                <button onClick={submit} className="rounded-xl bg-violet-600 text-white px-4 py-2" disabled={busy}>{busy?'กำลังสมัคร…':'สมัครสมาชิก'}</button>
-                <button onClick={onDone} className="rounded-xl border px-4 py-2">กลับไป Login</button>
+                <button onClick={submit} disabled={busy} className="rounded-xl bg-violet-600 text-white px-4 py-2">
+                  {busy? 'กำลังสมัคร…' : 'สมัครสมาชิก'}
+                </button>
+                <button onClick={onDone} type="button" className="rounded-xl border px-4 py-2">ย้อนกลับ</button>
               </div>
             </div>
           )}
@@ -185,31 +230,38 @@
     );
   }
 
-  function Forgot({ onDone }){
-    const [emp,setEmp]=useState(''), [email,setEmail]=useState(''), [msg,setMsg]=useState(''), [err,setErr]=useState('');
-    const send = async()=>{
-      setErr(''); setMsg('');
+  function Forgot({ onDone }) {
+    const [emp,setEmp]=useState(''), [email,setEmail]=useState('');
+    const [msg,setMsg]=useState(''), [err,setErr]=useState(''), [busy,setBusy]=useState(false);
+    const submit = async()=>{
+      setErr(''); setMsg(''); setBusy(true);
       try{
-        const r = await apiForgot(emp.trim(), email.trim());
+        const r = await api.forgot(emp.trim(), email.trim());
         if(!r.ok) throw new Error(r.message||'ดำเนินการไม่สำเร็จ');
-        setMsg('ส่งอีเมลรหัสชั่วคราวแล้ว กำลังกลับไปหน้าเข้าสู่ระบบ…');
-        setTimeout(onDone, 1200);
-      }catch(ex){ setErr(String(ex)); }
+        setMsg('ส่งอีเมลรหัสชั่วคราวแล้ว / หากไม่พบอีเมล ลองเช็คสแปมหรือสอบถาม HRD');
+        setTimeout(onDone, 1200); // ✅ เด้งกลับ Login
+      }catch(ex){ setErr(String(ex.message||ex)); } finally{ setBusy(false); }
     };
     return (
       <div className="min-h-screen grid place-items-center px-4">
         <div className="w-full max-w-md bg-white rounded-2xl shadow p-6">
           <div className="font-semibold mb-3">ลืมรหัสผ่าน</div>
           <div className="space-y-3">
-            <div><label className="text-xs text-slate-500">รหัสพนักงาน</label>
-              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={emp} onChange={e=>setEmp(e.target.value)} /></div>
-            <div><label className="text-xs text-slate-500">Email (คอลัมน์ H)</label>
-              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={email} onChange={e=>setEmail(e.target.value)} /></div>
+            <div>
+              <label className="text-xs text-slate-500">รหัสพนักงาน</label>
+              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={emp} onChange={e=>setEmp(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Email (ตามคอลัมน์ H)</label>
+              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={email} onChange={e=>setEmail(e.target.value)} />
+            </div>
             {err && <div className="text-sm text-rose-600">{err}</div>}
             {msg && <div className="text-sm text-emerald-600">{msg}</div>}
             <div className="flex gap-2">
-              <button onClick={send} className="rounded-xl bg-violet-600 text-white px-4 py-2">ส่งคำขอ</button>
-              <button onClick={onDone} className="rounded-xl border px-4 py-2">กลับ</button>
+              <button className="rounded-xl bg-slate-900 text-white px-4 py-2" onClick={submit} disabled={busy}>
+                {busy?'กำลังดำเนินการ...':'ส่งคำขอ'}
+              </button>
+              <button className="rounded-xl border px-4 py-2" onClick={onDone}>กลับ</button>
             </div>
           </div>
         </div>
@@ -217,34 +269,53 @@
     );
   }
 
-  function ChangePass({ onDone }){
-    const [emp,setEmp]=useState(''), [user,setUser]=useState(''), [oldp,setOld]=useState(''), [p1,setP1]=useState(''), [p2,setP2]=useState(''), [err,setErr]=useState(''), [msg,setMsg]=useState('');
+  function ResetPassword({ onDone }) {
+    const [employeeId,setEmp]=useState('');
+    const [username,setU]=useState('');
+    const [temp,setTemp]=useState('');
+    const [new1,setN1]=useState(''), [new2,setN2]=useState('');
+    const [err,setErr]=useState(''), [msg,setMsg]=useState('');
     const submit = async()=>{
       setErr(''); setMsg('');
-      if(!emp||!user||!oldp||!p1||!p2) return setErr('กรอกข้อมูลให้ครบ');
-      if(p1!==p2) return setErr('ยืนยันรหัสไม่ตรงกัน');
       try{
-        const r = await apiChangePass(emp.trim(), user.trim(), oldp, p1);
-        if(!r.ok) throw new Error(r.message||'เปลี่ยนรหัสผ่านไม่สำเร็จ'); // backend ควรส่ง "ไม่พบนรหัสพนักงาน" เมื่อผิด
-        setMsg('เปลี่ยนรหัสผ่านสำเร็จ! กำลังกลับไปหน้าเข้าสู่ระบบ…');
-        setTimeout(onDone, 1200);
-      }catch(ex){ setErr(String(ex)); }
+        if(!employeeId || !username || !temp) throw new Error('กรอกข้อมูลให้ครบ');
+        if(new1!==new2 || !new1) throw new Error('รหัสใหม่ไม่ตรงกัน');
+        const r = await api.resetPassword({ employeeId, username, tempPassword:temp, newPassword:new1 });
+        if(!r.ok) throw new Error(r.message||'เปลี่ยนรหัสไม่สำเร็จ');
+        setMsg('เปลี่ยนรหัสสำเร็จ กำลังกลับหน้าเข้าสู่ระบบ…');
+        setTimeout(onDone, 1200); // ✅ เด้งกลับ
+      }catch(ex){ setErr(String(ex.message||ex)); }
     };
     return (
       <div className="min-h-screen grid place-items-center px-4">
         <div className="w-full max-w-md bg-white rounded-2xl shadow p-6">
           <div className="font-semibold mb-3">เปลี่ยนรหัสผ่าน</div>
           <div className="space-y-3">
-            <div><label className="text-xs text-slate-500">รหัสพนักงาน</label><input className="w-full border rounded-xl px-3 py-2 mt-1" value={emp} onChange={e=>setEmp(e.target.value)} /></div>
-            <div><label className="text-xs text-slate-500">Username</label><input className="w-full border rounded-xl px-3 py-2 mt-1" value={user} onChange={e=>setUser(e.target.value)} /></div>
-            <div><label className="text-xs text-slate-500">Password (ปัจจุบัน/รหัสชั่วคราว)</label><div className="mt-1"><PasswordInput value={oldp} onChange={e=>setOld(e.target.value)} /></div></div>
-            <div><label className="text-xs text-slate-500">Password ใหม่</label><div className="mt-1"><PasswordInput value={p1} onChange={e=>setP1(e.target.value)} /></div></div>
-            <div><label className="text-xs text-slate-500">ยืนยัน Password ใหม่</label><div className="mt-1"><PasswordInput value={p2} onChange={e=>setP2(e.target.value)} /></div></div>
+            <div>
+              <label className="text-xs text-slate-500">รหัสพนักงาน</label>
+              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={employeeId} onChange={e=>setEmp(e.target.value)}/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Username</label>
+              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={username} onChange={e=>setU(e.target.value)}/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Password ชั่วคราว (จากอีเมล)</label>
+              <PasswordInput value={temp} onChange={e=>setTemp(e.target.value)}/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Password ใหม่</label>
+              <PasswordInput value={new1} onChange={e=>setN1(e.target.value)}/>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Password ใหม่อีกครั้ง</label>
+              <PasswordInput value={new2} onChange={e=>setN2(e.target.value)}/>
+            </div>
             {err && <div className="text-sm text-rose-600">{err}</div>}
             {msg && <div className="text-sm text-emerald-600">{msg}</div>}
             <div className="flex gap-2">
-              <button onClick={submit} className="rounded-xl bg-violet-600 text-white px-4 py-2">บันทึก</button>
-              <button onClick={onDone} className="rounded-xl border px-4 py-2">กลับ</button>
+              <button className="rounded-xl bg-slate-900 text-white px-4 py-2" onClick={submit}>ยืนยัน</button>
+              <button className="rounded-xl border px-4 py-2" onClick={onDone}>ย้อนกลับ</button>
             </div>
           </div>
         </div>
@@ -252,379 +323,293 @@
     );
   }
 
-  /* ====== ข้อมูลจำลอง (Reward/Tasks/Announcements) ====== */
+  // ========= Demo Items =========
   const ITEMS = [
-    { id:"R002", name:"กระเป๋าโน้ตบุ๊ค", points:1200, stock:5,  tags:['อุปกรณ์','premium'], img:"💼" },
-    { id:"R003", name:"แก้วกาแฟ Tumbler", points:450, stock:8, tags:['ของใช้','กาแฟ','eco'], img:"☕" },
-    { id:"R014", name:"เซ็ตสมุดโน้ต", points:150, stock:30, tags:['เครื่องเขียน','set'], img:"📝" },
-    { id:"R015", name:"ร่มพับอัตโนมัติ", points:300, stock:20, tags:['ของใช้','auto','rain'], img:"☂️" },
-    { id:"R016", name:"เสื้อโปโล Premium", points:800, stock:15, tags:['เสื้อผ้า','premium'], img:"👕" },
-    { id:"R017", name:"หูฟัง Bluetooth", points:2000, stock:3, tags:['อิเล็กทรอนิกส์','wireless','premium'], img:"🎧" },
-  ];
-  const TASKS = [
-    { id:'T1', title:'เข้าร่วมครอสฟิต 5 วันติดกัน', earn:100, progress:3, total:5, due:'2025-12-31' },
-    { id:'T2', title:'ส่งรายงานสุขภาพประจำสัปดาห์', earn:200, progress:2, total:4, due:'2025-12-25' },
-    { id:'T3', title:'เข้าร่วมอบรมสั้นออนไลน์', earn:150, progress:1, total:1, due:'2025-12-20' },
-  ];
-  const ANN = [
-    { id:'A1', title:'มีของใหม่ในคลังรางวัลบนแคตตาล็อก', body:'เพิ่มเสื้อยืดพรีเมียม หูฟัง Bluetooth และอัปเดตราคาพอยต์', ts:'2025-12-15T07:00:00+07:00', tag:'ข่าว' },
-    { id:'A2', title:'กติกาการหมดอายุแต้ม (31 ธ.ค.)', body:'แต้มจะหมดอายุทุกวันที่ 31 ธันวาคมของปีปฏิทิน', ts:'2025-12-10T07:00:00+07:00', tag:'กติกา' },
-    { id:'A3', title:'อัปเดตกติการางวัล v2.0', body:'ปรับสิทธิ์การแลกและเพิ่มแต้มจากกิจกรรมใหม่', ts:'2025-12-01T07:00:00+07:00', tag:'อัปเดต' },
+    { id:"R002", name:"เสื้อยืด SF Sport Club", points:700, stock:24, img:"👕" },
+    { id:"R003", name:"ผ้าเช็ดตัวเซ็ต 3 ผืน",   points:550, stock:42, img:"🧼" },
+    { id:"R008", name:"เซ็ตปิงปอง (ไม้+ลูก)",  points:900, stock:10, img:"🏓" },
+    { id:"R011", name:"แก้วน้ำสแตนเลส 20oz",   points:600, stock:30, img:"🥤" },
+    { id:"R012", name:"เสื้อโปโล SF (Limited)", points:1100,stock:15, img:"🧥" },
+    { id:"R013", name:"หมวกแก๊ป SF",            points:400, stock:40, img:"🧢" },
+    { id:"R014", name:"ถุงผ้าพรีเมียม + เข็มกลัด", points:450, stock:50, img:"👜" },
   ];
 
-  /* ====== UI หลัก (หลังล็อกอิน) ====== */
-  function Header({ user, tab, setTab, cartCount, openCart }){
-    const isAdmin = user?.role === 'admin' || user?.username === 'admin1959';
-    const tabs = [
-      {id:'home', label:'หน้าแรก', icon:'🏠'},
-      {id:'catalog', label:'แลกของ', icon:'🎁'},
-      {id:'me', label:'คะแนนของฉัน', icon:'🏆'},
-      {id:'history', label:'ประวัติ', icon:'📜'},
-      {id:'news', label:'ประกาศ/กติกา', icon:'🔔'},
-      ...(isAdmin ? [{id:'admin', label:'Admin', icon:'⚙️'}] : []),
-    ];
+  function Header({ user, cartCount, onLogout, openCart, tab, setTab }) {
     return (
-      <header className="bg-white border-b sticky top-0 z-10">
+      <header className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-violet-600 text-white grid place-items-center">★</div>
+            <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white grid place-items-center">SF</div>
             <div className="leading-tight">
-              <div className="font-semibold">ระบบแต้มรางวัล</div>
-              <div className="text-xs text-slate-500">Premium Rewards</div>
+              <div className="font-semibold">HRD Rewards</div>
+              <div className="text-xs text-slate-500">Wellness & Happy Workplace</div>
             </div>
           </div>
-
-          <nav className="hidden md:flex gap-2">
-            {tabs.map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)}
-                className={'px-3 py-1.5 rounded-xl text-sm border ' + (tab===t.id ? 'bg-violet-600 text-white border-violet-600' : 'bg-white hover:bg-slate-50')}>
-                <span className="mr-1">{t.icon}</span>{t.label}
+          <nav className="hidden md:flex items-center gap-2">
+            {[
+              {id:'home', label:'หน้าแรก'},
+              {id:'catalog', label:'แลกของ'},
+              {id:'me', label:'คะแนนของฉัน'},
+              {id:'history', label:'ประวัติ'},
+              {id:'news', label:'ประกาศ/กติกา'},
+              ...(user?.role==='admin' ? [{id:'admin',label:'Admin'}] : []),
+            ].map(m=>(
+              <button key={m.id}
+                onClick={()=>setTab(m.id)}
+                className={"px-3 py-1.5 rounded-xl text-sm border "+(tab===m.id?'bg-slate-900 text-white border-slate-900':'bg-white hover:bg-slate-50')}>
+                {m.label}
               </button>
             ))}
           </nav>
-
           <div className="flex items-center gap-2">
-            <button onClick={openCart} className="relative rounded-xl border px-3 py-1.5 text-sm bg-slate-50">
-              🛒 ตะกร้า{cartCount? <span className="ml-1">({cartCount})</span> : null}
-            </button>
-            <div className="hidden sm:block text-right mr-1">
+            <div className="hidden sm:block text-right mr-2">
               <div className="text-sm font-medium">{user.name}</div>
               <div className="text-xs text-slate-500">{user.id}</div>
             </div>
-            <div className="h-8 w-8 rounded-full bg-slate-200 grid place-items-center">👤</div>
+            <button onClick={openCart} className="relative rounded-xl border px-3 py-1.5 text-sm bg-slate-50">
+              🛒 ตะกร้า{cartCount? <span className="ml-1">({cartCount})</span> : null}
+            </button>
+            <button onClick={onLogout} className="rounded-xl border px-3 py-1.5 text-sm bg-slate-50">ออกจากระบบ</button>
           </div>
         </div>
       </header>
     );
   }
 
-  function HomeView({ user }){
-    return (
-      <div className="space-y-4">
-        <div className="grid sm:grid-cols-3 gap-3">
-          <div className="bg-white rounded-2xl p-4 shadow">
-            <div className="text-slate-500 text-sm">แต้มคงเหลือ</div>
-            <div className="text-3xl font-bold">{fmt.format(user.points)} <span className="text-base">แต้ม</span></div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow">
-            <div className="text-slate-500 text-sm">EXP สะสม</div>
-            <div className="text-3xl font-bold">{fmt.format(user.tierPoints)}</div>
-            <div className="text-xs text-emerald-600 mt-1">+15% Multiplier</div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow">
-            <div className="text-slate-500 text-sm">ภารกิจที่เปิด</div>
-            <div className="text-3xl font-bold">{TASKS.length}</div>
-          </div>
-        </div>
-
-        <section className="bg-white rounded-2xl p-4 shadow">
-          <div className="font-semibold mb-3">ภารกิจแนะนำ</div>
-          <ul className="space-y-3">
-            {TASKS.map(t=>(
-              <li key={t.id} className="border rounded-xl p-3">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{t.title}</div>
-                  <Badge>+{t.earn} แต้ม</Badge>
-                </div>
-                <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-2 bg-violet-500" style={{width:`${Math.min(100, (t.progress/t.total)*100)}%`}}></div>
-                </div>
-                <div className="text-xs text-slate-500 mt-1">เดดไลน์: {new Date(t.due).toLocaleDateString('th-TH')} • {t.progress}/{t.total}</div>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="bg-white rounded-2xl p-4 shadow">
-          <div className="font-semibold mb-3">ข่าวล่าสุด</div>
-          <div className="border rounded-xl p-3 bg-amber-50">{ANN[0].title} — {ANN[0].body}</div>
-        </section>
-      </div>
-    );
-  }
-
-  function CatalogView({ items, add }){
-    const [q,setQ]=useState(''); const [sort,setSort]=useState('az'); const [cat,setCat]=useState('all');
-    const cats = ['all','ของใช้','อุปกรณ์','อิเล็กทรอนิกส์','เสื้อผ้า','เครื่องเขียน'];
-    const filtered = useMemo(()=>{
-      let r = items.filter(i => (cat==='all'?true:i.tags.includes(cat)) && i.name.toLowerCase().includes(q.toLowerCase()));
-      if(sort==='az') r.sort((a,b)=>a.name.localeCompare(b.name));
-      if(sort==='cost') r.sort((a,b)=>a.points-b.points);
-      if(sort==='stock') r.sort((a,b)=>b.stock-a.stock);
-      return r;
-    },[items,q,sort,cat]);
-    return (
-      <div>
-        <div className="bg-white rounded-2xl shadow p-4 mb-4 grid gap-3 md:grid-cols-4">
-          <input placeholder="ค้นหาสินค้า..." value={q} onChange={e=>setQ(e.target.value)} className="border rounded-xl px-3 py-2"/>
-          <select value={cat} onChange={e=>setCat(e.target.value)} className="border rounded-xl px-3 py-2">
-            {cats.map(c=><option key={c} value={c}>{c==='all'?'ทุกหมวดหมู่':c}</option>)}
-          </select>
-          <select value={sort} onChange={e=>setSort(e.target.value)} className="border rounded-xl px-3 py-2">
-            <option value="az">ชื่อ A-Z</option>
-            <option value="cost">แต้มต่ำ→สูง</option>
-            <option value="stock">สต็อกมาก→น้อย</option>
-          </select>
-          <div className="text-sm text-slate-500 self-center">{filtered.length} รายการ</div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(r=>(
-            <div key={r.id} className="bg-white rounded-2xl border p-4 flex flex-col shadow-sm">
-              <div className="text-6xl mb-2">{r.img}</div>
-              <div className="font-semibold text-lg leading-tight">{r.name}</div>
-              <div className="text-sm text-slate-500 mt-1 line-clamp-2">สินค้า/ของรางวัลคุณภาพ</div>
-              <div className="flex gap-2 mt-2 flex-wrap">
-                <Badge>คงเหลือ {r.stock}</Badge>
-                {r.tags.slice(0,3).map((t,i)=><Badge key={i}>{t}</Badge>)}
-              </div>
-              <div className="mt-3 text-violet-600 font-bold">⭐ {fmt.format(r.points)} แต้ม</div>
-              <button onClick={()=>add(r)} disabled={r.stock<=0}
-                className="mt-3 rounded-xl bg-violet-600 text-white py-2 disabled:opacity-40">+ เพิ่มในตะกร้า</button>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  function MeView({ user, events }){
-    return (
-      <div className="space-y-4">
-        <div className="grid sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-2xl p-4 shadow"><div className="text-slate-500 text-sm">แต้มคงเหลือ</div><div className="text-3xl font-bold">{fmt.format(user.points)}</div></div>
-          <div className="bg-white rounded-2xl p-4 shadow"><div className="text-slate-500 text-sm">แต้ม Tier</div><div className="text-3xl font-bold">{fmt.format(user.tierPoints)}</div><div className="text-xs text-emerald-600">Multiplier ×1.15</div></div>
-          <div className="bg-white rounded-2xl p-4 shadow"><div className="text-slate-500 text-sm">วันหมดอายุแต้ม</div><div className="text-3xl font-bold">{new Date(user.exp).toLocaleDateString('th-TH')}</div></div>
-          <div className="bg-white rounded-2xl p-4 shadow"><div className="text-slate-500 text-sm">ภารกิจที่ทำ</div><div className="text-3xl font-bold">{events.filter(e=>e.type==='earn').length}</div></div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 shadow">
-          <div className="font-semibold mb-2">สลิปแต้มล่าสุด</div>
-          <ul className="text-sm divide-y">
-            {events.slice(0,8).map(e=>(
-              <li key={e.id} className="py-2 flex justify-between">
-                <div><b>{e.type==='earn'?'รับแต้ม':'แลกของ'}</b> • {e.note} <span className="text-slate-400 ml-2">{new Date(e.ts).toLocaleString('th-TH')}</span></div>
-                <div className={'font-semibold ' + (e.points>0?'text-emerald-600':'text-rose-600')}>{e.points>0?`+${fmt.format(e.points)}`:fmt.format(e.points)} pts</div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    );
-  }
-
-  function HistoryView({ events }){
-    return (
-      <div className="bg-white rounded-2xl shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50">
-            <tr><th className="p-3 text-left">วันที่/เวลา</th><th className="p-3 text-left">ประเภท</th><th className="p-3 text-left">รายละเอียด</th><th className="p-3 text-right">คะแนน</th><th className="p-3 text-left">สถานะ</th></tr>
-          </thead>
-          <tbody>
-            {events.map(e=>(
-              <tr key={e.id} className="border-t">
-                <td className="p-3 whitespace-nowrap">{new Date(e.ts).toLocaleString('th-TH')}</td>
-                <td className="p-3">{e.type==='earn'?'รับแต้ม':'แลกของ'}</td>
-                <td className="p-3">{e.note}</td>
-                <td className={'p-3 text-right font-semibold ' + (e.points>0?'text-emerald-600':'text-rose-600')}>{e.points>0?`+${fmt.format(e.points)}`:fmt.format(e.points)}</td>
-                <td className="p-3">{e.status||'-'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
-  function NewsView(){
-    return (
-      <div className="space-y-4">
-        <section className="bg-white rounded-2xl p-4 shadow">
-          <div className="font-semibold mb-2">ประกาศล่าสุด</div>
-          {ANN.map(a=>(
-            <div key={a.id} className="border rounded-xl p-3 mb-2">
-              <div className="flex items-center gap-2 mb-1"><Badge>{a.tag}</Badge><div className="font-medium">{a.title}</div></div>
-              <div className="text-sm text-slate-600">{a.body}</div>
-              <div className="text-xs text-slate-400 mt-1">{new Date(a.ts).toLocaleString('th-TH')}</div>
-            </div>
-          ))}
-        </section>
-
-        <section className="bg-white rounded-2xl p-4 shadow">
-          <div className="font-semibold mb-2">กติกาการใช้แต้มรางวัล</div>
-          <ul className="space-y-2 text-sm">
-            <li className="p-3 rounded-lg bg-amber-50">⚠️ แต้มหมดอายุทุกวันที่ 31 ธันวาคม ของทุกปี</li>
-            <li className="p-3 rounded-lg bg-emerald-50">✅ การรับแต้มจากกิจกรรม จะเข้าภายใน 48 ชั่วโมง</li>
-            <li className="p-3 rounded-lg bg-emerald-50">✅ ของรางวัลมีจำนวนจำกัด สงวนสิทธิ์ตามลำดับก่อนหลัง</li>
-            <li className="p-3 rounded-lg bg-amber-50">⚠️ การโอน/ขายแต้มระหว่างกันไม่อนุญาต</li>
-          </ul>
-        </section>
-      </div>
-    );
-  }
-
-  function AdminPanel({ items, setItems }){
-    // แสดงเฉพาะแอดมินเท่านั้น (ป้องกันอีกชั้น)
-    const [draft,setDraft] = useState({ name:'', points:500, stock:10, tags:'premium', img:'🎁' });
-    const addItem = ()=>{
-      if(!draft.name.trim()) return;
-      const newItem = { id:'R'+Math.random().toString(36).slice(2,6).toUpperCase(), name:draft.name.trim(), points:Number(draft.points)||1, stock:Number(draft.stock)||0, tags:draft.tags.split(',').map(s=>s.trim()).filter(Boolean), img:draft.img||'🎁' };
-      setItems(prev=>[newItem,...prev]); setDraft({ name:'', points:500, stock:10, tags:'premium', img:'🎁' });
-    };
-    return (
-      <div className="space-y-4">
-        <div className="grid sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-2xl p-4 shadow"><div className="text-slate-500 text-sm">สินค้าทั้งหมด</div><div className="text-3xl font-bold">{items.length}</div></div>
-          <div className="bg-white rounded-2xl p-4 shadow"><div className="text-slate-500 text-sm">สต็อกรวม</div><div className="text-3xl font-bold">{fmt.format(items.reduce((s,i)=>s+i.stock,0))}</div></div>
-          <div className="bg-white rounded-2xl p-4 shadow"><div className="text-slate-500 text-sm">แต้มเฉลี่ย</div><div className="text-3xl font-bold">{fmt.format(Math.round(items.reduce((s,i)=>s+i.points,0)/items.length))}</div></div>
-          <div className="bg-white rounded-2xl p-4 shadow"><div className="text-slate-500 text-sm">เมนูจัดการ</div><div className="mt-2 text-sm text-slate-600">เพิ่ม/ลบไอเทม ปรับแต้ม-สต็อก</div></div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 shadow">
-          <div className="font-semibold mb-2">เพิ่มสินค้าใหม่</div>
-          <div className="grid md:grid-cols-5 gap-2">
-            <input placeholder="ชื่อไอเทม" className="border rounded-xl px-3 py-2" value={draft.name} onChange={e=>setDraft(d=>({...d,name:e.target.value}))}/>
-            <input type="number" placeholder="แต้ม" className="border rounded-xl px-3 py-2" value={draft.points} onChange={e=>setDraft(d=>({...d,points:e.target.value}))}/>
-            <input type="number" placeholder="สต็อก" className="border rounded-xl px-3 py-2" value={draft.stock} onChange={e=>setDraft(d=>({...d,stock:e.target.value}))}/>
-            <input placeholder="tags คั่น , " className="border rounded-xl px-3 py-2" value={draft.tags} onChange={e=>setDraft(d=>({...d,tags:e.target.value}))}/>
-            <input placeholder="อีโมจิ" className="border rounded-xl px-3 py-2" value={draft.img} onChange={e=>setDraft(d=>({...d,img:e.target.value}))}/>
-          </div>
-          <button onClick={addItem} className="mt-3 rounded-xl bg-violet-600 text-white px-4 py-2">+ เพิ่ม</button>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 shadow">
-          <div className="font-semibold mb-2">รายการสินค้า</div>
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="p-2 text-left">ชื่อ</th><th className="p-2 text-right">แต้ม</th><th className="p-2 text-right">สต็อก</th><th className="p-2">แท็ก</th><th className="p-2">จัดการ</th></tr></thead>
-            <tbody>
-              {items.map(it=>(
-                <tr key={it.id} className="border-t">
-                  <td className="p-2">{it.img} {it.name}</td>
-                  <td className="p-2 text-right">{fmt.format(it.points)}</td>
-                  <td className="p-2 text-right">{fmt.format(it.stock)}</td>
-                  <td className="p-2">{it.tags.slice(0,2).map((t,i)=><Badge key={i}>{t}</Badge>)}</td>
-                  <td className="p-2">
-                    <button className="px-2 py-1 rounded-lg border mr-1" onClick={()=>setItems(prev=>prev.map(x=>x.id===it.id?{...x,stock:x.stock+1}:x))}>➕สต็อก</button>
-                    <button className="px-2 py-1 rounded-lg border mr-1" onClick={()=>setItems(prev=>prev.map(x=>x.id===it.id?{...x,stock:Math.max(0,x.stock-1)}:x))}>➖สต็อก</button>
-                    <button className="px-2 py-1 rounded-lg border text-rose-600" onClick={()=>setItems(prev=>prev.filter(x=>x.id!==it.id))}>🗑 ลบ</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="text-xs text-slate-500">* ถ้าต้องการบันทึกลงชีตจริง เรียก <code>adminSaveConfig</code> ฝั่ง Apps Script</div>
-      </div>
-    );
-  }
-
-  function CheckoutModal({ open, onClose, user, cart, setItems, setUser }){
+  function CheckoutModal({ open, onClose, user, cart, setItems, setUser }) {
     if(!open) return null;
     const total = cart.reduce((s,c)=> s + c.points*c.qty, 0);
-    const checkout = async ()=>{
+    const doCheckout = async ()=>{
       try{
         const note = cart.map(c=>`${c.name} x${c.qty}`).join(', ');
-        const r = await apiRedeem(user.id, total, note);
+        const r = await api.redeem(user.id, total, note);
         if(!r.ok) throw new Error(r.message||'ตัดแต้มไม่สำเร็จ');
-        const fresh = await apiGetPoints(user.id);
-        setUser(u=>({...u, points:fresh.points}));
-      }catch(ex){ alert('ตัดแต้มไม่สำเร็จ: '+ex); return; }
-      setItems(prev=>prev.map(it=>{
+        const fresh = await api.getPoints(user.id);
+        if (fresh.ok) setUser(u=>({...u, points:fresh.points}));
+      }catch(ex){
+        alert('ผิดพลาดในการตัดแต้ม: '+ex);
+        return;
+      }
+      setItems(prev=> prev.map(it=>{
         const c = cart.find(x=>x.id===it.id);
         if(!c) return it;
-        return {...it, stock:Math.max(0,it.stock-c.qty)};
+        return {...it, stock: Math.max(0, it.stock - c.qty)};
       }));
-      onClose(true);
+      onClose(true); // ปิดและเคลียร์ตะกร้า
     };
     return (
       <div className="fixed inset-0 z-30 bg-black/40 grid place-items-center p-4">
         <div className="w-full max-w-2xl bg-white rounded-2xl shadow-lg">
-          <div className="flex items-center justify-between p-4 border-b"><div className="font-semibold">ตะกร้าแลกของ</div><button onClick={()=>onClose(false)} className="rounded-full w-8 h-8 grid place-items-center border">✕</button></div>
+          <div className="flex items-center justify-between p-4 border-b">
+            <div className="font-semibold">ตะกร้าแลกของ</div>
+            <button onClick={()=>onClose(false)} className="rounded-full w-8 h-8 grid place-items-center border">✕</button>
+          </div>
           <div className="p-4 max-h-[60vh] overflow-auto">
             {cart.length===0 ? <div className="text-center text-slate-500 py-8">ยังไม่มีสินค้าในตะกร้า</div> :
-            <ul className="space-y-3">
-              {cart.map(c=>(
-                <li key={c.id} className="flex items-center gap-3 border rounded-xl p-3">
-                  <div className="text-2xl">{c.img}</div>
-                  <div className="flex-1">
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-xs text-slate-500">{c.points} pts</div>
-                  </div>
-                  <div className="w-24 text-right font-semibold">{fmt.format(c.points*c.qty)} pts</div>
-                </li>
-              ))}
-            </ul>}
+              <ul className="space-y-3">
+                {cart.map(c=>(
+                  <li key={c.id} className="flex items-center gap-3 border rounded-xl p-3">
+                    <div className="text-2xl">{c.img}</div>
+                    <div className="flex-1">
+                      <div className="font-medium">{c.name}</div>
+                      <div className="text-xs text-slate-500">{c.points} pts</div>
+                    </div>
+                    <div className="w-24 text-right font-semibold">{fmt.format(c.points*c.qty)} pts</div>
+                  </li>
+                ))}
+              </ul>
+            }
           </div>
           <div className="p-4 border-t flex items-center justify-between">
             <div className="text-sm text-slate-600">คะแนนคุณ: <b>{fmt.format(user.points)} pts</b></div>
-            <div className="text-right"><div className="text-sm">รวมใช้แต้ม</div><div className="text-xl font-bold">{fmt.format(total)} pts</div></div>
+            <div className="text-right">
+              <div className="text-sm">รวมใช้แต้ม</div>
+              <div className="text-xl font-bold">{fmt.format(total)} pts</div>
+            </div>
           </div>
           <div className="p-4 border-t text-right">
-            <button onClick={checkout} disabled={cart.length===0 || total>user.points} className="rounded-xl px-4 py-2 bg-violet-600 text-white disabled:opacity-50">ยืนยันแลก</button>
+            <button className="rounded-xl px-4 py-2 bg-slate-900 text-white disabled:opacity-50"
+                    disabled={cart.length===0 || total>user.points}
+                    onClick={doCheckout}>ยืนยันแลก</button>
           </div>
         </div>
       </div>
     );
   }
 
-  /* ====== แอปหลัก ====== */
-  function App(){
-    const [mode,setMode] = useState('login'); // login | register | forgot | changepw | app
-    const [tab,setTab] = useState('home');
-    const [user,setUser]=useState(null);
-    const [items,setItems]=useState(ITEMS);
-    const [cart,setCart]=useState([]);
-    const [events,setEvents]=useState([]);
-    const [openCart,setOpenCart]=useState(false);
-
-    if(mode==='login')     return <Login onOK={(u)=>{ setUser(u); setMode('app'); }} onOpenRegister={()=>setMode('register')} onOpenForgot={()=>setMode('forgot')} onOpenChangePass={()=>setMode('changepw')} />;
-    if(mode==='register')  return <Register onDone={()=>setMode('login')} />;
-    if(mode==='forgot')    return <Forgot onDone={()=>setMode('login')} />;
-    if(mode==='changepw')  return <ChangePass onDone={()=>setMode('login')} />;
-
-    const addToCart = (r)=> setCart(prev=>{ const has=prev.find(x=>x.id===r.id); if(has) return prev.map(x=>x.id===r.id?{...x,qty:Math.min(x.qty+1,r.stock)}:x); return [...prev,{...r,qty:1}]});
-    const isAdmin = user?.role==='admin' || user?.username==='admin1959';
-
+  function NewsPage(){
+    const [announce,setAnn]=useState([]);
+    const [rules,setRules]=useState([]);
+    useEffect(()=>{
+      (async()=>{
+        const A = await api.getAnnouncements(); if(A.ok) setAnn(A.items||[]);
+        const R = await api.getRules(); if(R.ok) setRules(R.items||[]);
+      })();
+    },[]);
     return (
-      <div>
-        <Header user={user} tab={tab} setTab={setTab} cartCount={cart.reduce((s,c)=>s+c.qty,0)} openCart={()=>setOpenCart(true)} />
+      <div className="space-y-4">
+        <section className="bg-white rounded-2xl shadow p-4">
+          <div className="font-semibold mb-3">ประกาศล่าสุด</div>
+          {announce.length===0 ? <div className="text-sm text-slate-500">ยังไม่มีประกาศ</div> :
+            <div className="space-y-3">
+              {announce.map((a,i)=>(
+                <div key={i} className="border rounded-xl p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="text-xl">📣</div>
+                    <div className="flex-1">
+                      <div className="font-medium">{a.title}</div>
+                      <div className="text-sm text-slate-600">{a.body}</div>
+                      <div className="text-xs text-slate-400 mt-1">{a.ts||''}</div>
+                      {a.img ? <img src={a.img} alt="" className="mt-2 max-h-40 rounded-lg" /> : null}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          }
+        </section>
 
-        <main className="max-w-6xl mx-auto px-4 py-6">
-          {tab==='home'    && <HomeView user={user} />}
-          {tab==='catalog' && <CatalogView items={items} add={addToCart} />}
-          {tab==='me'      && <MeView user={user} events={events} />}
-          {tab==='history' && <HistoryView events={events} />}
-          {tab==='news'    && <NewsView />}
-          {tab==='admin'   && (isAdmin ? <AdminPanel items={items} setItems={setItems} /> : <div className="text-center text-slate-500">ไม่มีสิทธิ์เข้าถึง</div>)}
-        </main>
+        <section className="bg-white rounded-2xl shadow p-4">
+          <div className="font-semibold mb-3">กติกาการใช้แต้มรางวัล</div>
+          <div className="space-y-2">
+            {rules.map((r,i)=>(
+              <div key={i} className="border rounded-xl p-3">
+                <div className="font-medium">{r.title}</div>
+                <div className="text-sm text-slate-600">{r.body}</div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-        <CheckoutModal open={openCart} onClose={(ok)=>{ setOpenCart(false); if(ok){ setEvents(prev=>[{ id:'ORD-'+Date.now(), type:'redeem', ts:new Date().toISOString(), note: cart.map(c=>`${c.name} x${c.qty}`).join(', '), points: -cart.reduce((s,c)=>s+c.points*c.qty,0), status:'กำลังเตรียม' },...prev]); setCart([]);} }} user={user} cart={cart} setItems={setItems} setUser={setUser} />
+        <section className="bg-white rounded-2xl shadow p-4">
+          <div className="font-semibold mb-3">ข้อมูลเพิ่มเติม</div>
+          <div className="grid md:grid-cols-2 gap-3 text-sm text-slate-700">
+            <div className="border rounded-xl p-3">
+              <div className="font-medium mb-1">การแจ้งเตือน</div>
+              <div>ระบบจะส่งการแจ้งเตือนเมื่อมีการเปลี่ยนแปลงสำคัญ รวมถึงการหมดอายุของแต้ม</div>
+            </div>
+            <div className="border rounded-xl p-3">
+              <div className="font-medium mb-1">เวลาอัพเดท</div>
+              <div>ระบบอัพเดทข้อมูลแต้มรางวัลทุกวันเวลา 09:00 น. และ 18:00 น.</div>
+            </div>
+            <div className="border rounded-xl p-3">
+              <div className="font-medium mb-1">ช่วงเวลาแลกของ</div>
+              <div>สามารถแลกของรางวัลได้ทุกวัน เวลา 08:00 - 17:00 น. (วันจันทร์-ศุกร์)</div>
+            </div>
+            <div className="border rounded-xl p-3">
+              <div className="font-medium mb-1">ติดต่อสอบถาม</div>
+              <div>หากมีคำถาม โปรดติดต่อ คุณเจ 3CX : 2058</div>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
 
-  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  function App(){
+    const [mode,setMode] = useState('login'); // login | register | forgot | reset | app
+    const [user,setUser]=useState(null);
+    const [tab,setTab]=useState('home'); // home | catalog | me | history | news | admin
+    const [items,setItems]=useState(ITEMS);
+    const [cart,setCart]=useState([]);
+    const [openCart,setOpenCart]=useState(false);
+
+    // Mock หน้าต่าง ๆ (home/me/history/admin) ใช้ UI เดิมของคุณหรือข้อความ placeholder
+    const Home = () => (
+      <div className="bg-white rounded-2xl shadow p-4">
+        <div className="font-semibold">ยินดีต้อนรับ, {user.name}</div>
+        <div className="text-sm text-slate-600 mt-1">คะแนนคงเหลือ: <b>{fmt.format(user.points)} pts</b></div>
+      </div>
+    );
+
+    const Catalog = () => (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map(r=>(
+          <div key={r.id} className="rounded-2xl border p-4 flex flex-col">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">{r.img}</div>
+              <div className="flex-1">
+                <div className="font-medium">{r.name}</div>
+                <div className="text-xs text-slate-500 mt-1 flex gap-2">
+                  <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">{r.points} pts</span>
+                  <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">สต็อก {r.stock}</span>
+                </div>
+              </div>
+            </div>
+            <button onClick={()=>{
+              setCart(prev=>{
+                const has = prev.find(x=>x.id===r.id);
+                if(has) return prev.map(x=> x.id===r.id ? {...x, qty:Math.min(x.qty+1, r.stock)} : x);
+                return [...prev, {...r, qty:1}];
+              });
+            }} disabled={r.stock<=0}
+            className="mt-3 rounded-xl px-3 py-2 text-sm bg-slate-900 text-white disabled:opacity-40">
+              {r.stock>0? 'เพิ่มใส่ตะกร้า' : 'หมดชั่วคราว'}
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+
+    const Me = () => (
+      <div className="bg-white rounded-2xl shadow p-4">
+        <div className="font-semibold mb-2">โปรไฟล์</div>
+        <div className="text-sm text-slate-700">รหัส: {user.id} • ชื่อ: {user.name}</div>
+        <div className="text-sm text-slate-700">คะแนนคงเหลือ: {fmt.format(user.points)} pts</div>
+      </div>
+    );
+
+    const History = () => (
+      <div className="bg-white rounded-2xl shadow p-4 text-sm text-slate-600">ประวัติการรับ/ใช้แต้ม (ตัวอย่าง)</div>
+    );
+
+    const Admin = () => (
+      <div className="bg-white rounded-2xl shadow p-4">
+        <div className="font-semibold mb-2">Admin Panel</div>
+        <div className="text-sm text-slate-600">ปรับแต่งได้เฉพาะผู้ใช้ role: admin</div>
+      </div>
+    );
+
+    if(mode==='login') return (
+      <Login
+        onOK={(u)=>{ setUser(u); setMode('app'); }}
+        onOpenRegister={()=>setMode('register')}
+        onOpenForgot={()=>setMode('forgot')}
+        onOpenReset={()=>setMode('reset')}
+      />
+    );
+    if(mode==='register') return <Register onDone={()=>setMode('login')} />;
+    if(mode==='forgot')   return <Forgot onDone={()=>setMode('login')} />;
+    if(mode==='reset')    return <ResetPassword onDone={()=>setMode('login')} />;
+
+    return (
+      <div>
+        <Header
+          user={user}
+          cartCount={cart.reduce((s,c)=>s+c.qty,0)}
+          onLogout={()=>{ setMode('login'); setUser(null); setCart([]); }}
+          openCart={()=>setOpenCart(true)}
+          tab={tab}
+          setTab={setTab}
+        />
+
+        <main className="max-w-6xl mx-auto px-4 py-6">
+          {tab==='home' && <Home/>}
+          {tab==='catalog' && <Catalog/>}
+          {tab==='me' && <Me/>}
+          {tab==='history' && <History/>}
+          {tab==='news' && <NewsPage/>}
+          {tab==='admin' && (user.role==='admin' ? <Admin/> : <div className="text-sm text-rose-600">จำกัดสิทธิ์</div>)}
+        </main>
+
+        <CheckoutModal open={openCart} onClose={(ok)=>{ setOpenCart(false); if(ok) setCart([]); }}
+          user={user} cart={cart} setItems={setItems} setUser={setUser} />
+      </div>
+    );
+  }
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<App />);
   </script>
 </body>
 </html>
