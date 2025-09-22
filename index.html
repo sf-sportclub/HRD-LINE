@@ -17,30 +17,29 @@
   const { useState } = React;
   const fmt = new Intl.NumberFormat('th-TH');
 
-const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwcYfT0NxBSGphJw8U8JUFashnZXlLrfWaJE8-gfF6787zR-VUxv2If8ccLICn4f7NToQ/exec'; // /exec ของจริง
+  /* ====== URL Apps Script /exec ของคุณ ====== */
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwcYfT0NxBSGphJw8U8JUFashnZXlLrfWaJE8-gfF6787zR-VUxv2If8ccLICn4f7NToQ/exec'; // แก้เป็นของคุณ
 
-async function callApi(action, payload) {
-  const res = await fetch(WEBAPP_URL, {
-    method: 'POST',
-    // อย่าใส่ headers ใด ๆ เพื่อให้เป็น simple request (ไม่เกิด preflight)
-    // headers: { 'Content-Type': 'application/json' },  // ← ลบออก
-    body: JSON.stringify({ action, payload }),          // ส่งเป็น text/plain โดยปริยาย
-    // credentials: 'omit' // ปล่อยค่า default ก็ได้
-  });
-
-  // อ่านเป็นข้อความก่อน แล้วค่อย parse (กันกรณี content-type ไม่ใช่ application/json)
-  const text = await res.text();
-  try { return JSON.parse(text); }
-  catch { return { ok:false, message:'Bad JSON from server', raw:text }; }
-}
+  /* ====== fetch แบบ simple request (เลี่ยง preflight) ====== */
+  async function callApi(action, payload) {
+    const res = await fetch(WEBAPP_URL, {
+      method: 'POST',
+      // อย่าใส่ headers ใด ๆ เพื่อให้เป็น simple request
+      body: JSON.stringify({ action, payload }), // ส่งเป็น text/plain โดยปริยาย
+    });
+    const text = await res.text();
+    try { return JSON.parse(text); }
+    catch { return { ok:false, message:'Bad JSON from server', raw:text }; }
+  }
 
   // === API adapters ===
-  const apiLogin     = (u,p)         => callApi('login',        { username:u, password:p });
-  const apiGetPoints = (id)          => callApi('getPoints',    { employeeId:id });
-  const apiRedeem    = (id,amt,note) => callApi('redeem',       { employeeId:id, amount:amt, note });
-  const apiCheckEmp  = (id)          => callApi('checkEmployee',{ employeeId:id });
-  const apiRegister  = (pl)          => callApi('register',     pl);
-  const apiForgot    = (id,email)    => callApi('forgot',       { employeeId:id, email });
+  const apiLogin      = (u,p)             => callApi('login',        { username:u, password:p });
+  const apiGetPoints  = (id)              => callApi('getPoints',    { employeeId:id });
+  const apiRedeem     = (id,amt,note)     => callApi('redeem',       { employeeId:id, amount:amt, note });
+  const apiCheckEmp   = (id)              => callApi('checkEmployee',{ employeeId:id });
+  const apiRegister   = (pl)              => callApi('register',     pl);
+  const apiForgot     = (id,email)        => callApi('forgot',       { employeeId:id, email });
+  const apiChangePass = (id,u,oldp,newp)  => callApi('changePassword',{ employeeId:id, username:u, oldPassword:oldp, newPassword:newp });
 
   /* ====== UI Reusable ====== */
   function PasswordInput({ value, onChange, placeholder="password" }){
@@ -59,7 +58,7 @@ async function callApi(action, payload) {
   }
 
   /* ====== Auth Screens ====== */
-  function Login({ onOK, onOpenRegister, onOpenForgot }){
+  function Login({ onOK, onOpenRegister, onOpenForgot, onOpenChangePass }){
     const [u,setU]=useState(''), [p,setP]=useState(''), [err,setErr]=useState(''), [busy,setBusy]=useState(false);
     const submit = async(e)=>{
       e.preventDefault(); setErr(''); setBusy(true);
@@ -76,7 +75,7 @@ async function callApi(action, payload) {
             <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white grid place-items-center">SF</div>
             <div className="font-semibold">HRD Rewards</div>
           </div>
-          <div className="text-sm text-slate-500 mb-3">เข้าสู่ระบบด้วย <b>username</b> / <b>password</b> </div>
+          <div className="text-sm text-slate-500 mb-3">เข้าสู่ระบบด้วย <b>username</b> / <b>password</b> จาก Sheet1 (คอลัมน์ I,J)</div>
           <div className="space-y-3">
             <div>
               <label className="text-xs text-slate-500">username</label>
@@ -93,7 +92,8 @@ async function callApi(action, payload) {
             </button>
             <div className="text-sm text-center text-slate-600">
               <button type="button" className="underline mr-3" onClick={onOpenRegister}>สมัครสมาชิก</button>
-              <button type="button" className="underline" onClick={onOpenForgot}>ลืมรหัสผ่าน</button>
+              <button type="button" className="underline mr-3" onClick={onOpenForgot}>ลืมรหัสผ่าน</button>
+              <button type="button" className="underline" onClick={onOpenChangePass}>เปลี่ยนรหัสผ่าน</button>
             </div>
           </div>
         </form>
@@ -246,13 +246,68 @@ async function callApi(action, payload) {
               <input className="w-full border rounded-xl px-3 py-2 mt-1" value={emp} onChange={e=>setEmp(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-slate-500">Email </label>
+              <label className="text-xs text-slate-500">Email (ตามคอลัมน์ H)</label>
               <input className="w-full border rounded-xl px-3 py-2 mt-1" value={email} onChange={e=>setEmail(e.target.value)} />
             </div>
             {err && <div className="text-sm text-rose-600">{err}</div>}
             {msg && <div className="text-sm text-emerald-600">{msg}</div>}
             <div className="flex gap-2">
               <button className="rounded-xl bg-slate-900 text-white px-4 py-2" onClick={submit} disabled={busy}>{busy?'กำลังดำเนินการ...':'ส่งคำขอ'}</button>
+              <button className="rounded-xl border px-4 py-2" onClick={onDone}>กลับ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ===== เปลี่ยนรหัสผ่าน ===== */
+  function ChangePassword({ onDone }) {
+    const [emp,setEmp] = useState('');
+    const [user,setUser] = useState('');
+    const [oldp,setOldp] = useState('');
+    const [p1,setP1] = useState('');
+    const [p2,setP2] = useState('');
+    const [err,setErr] = useState('');
+    const [msg,setMsg] = useState('');
+    const [busy,setBusy] = useState(false);
+
+    const submit = async ()=>{
+      setErr(''); setMsg('');
+      if(!emp || !user || !oldp || !p1 || !p2){ setErr('กรอกข้อมูลให้ครบทุกช่อง'); return; }
+      if(p1 !== p2){ setErr('ยืนยันรหัสผ่านใหม่ไม่ตรงกัน'); return; }
+      if(p1.length < 6){ setErr('รหัสผ่านใหม่ควรมีอย่างน้อย 6 ตัวอักษร'); return; }
+      setBusy(true);
+      try{
+        const r = await apiChangePass(emp.trim(), user.trim(), oldp, p1);
+        if(!r.ok) throw new Error(r.message||'เปลี่ยนรหัสผ่านไม่สำเร็จ');
+        setMsg('เปลี่ยนรหัสผ่านสำเร็จ! กรุณาเข้าสู่ระบบด้วยรหัสใหม่');
+      }catch(ex){ setErr(String(ex)); } finally{ setBusy(false); }
+    };
+
+    return (
+      <div className="min-h-screen grid place-items-center px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow p-6">
+          <div className="font-semibold mb-3">เปลี่ยนรหัสผ่าน</div>
+          <div className="text-xs text-slate-500 mb-3">ใช้รหัสชั่วคราวที่ได้รับทางอีเมลในช่อง “Password (ปัจจุบัน)”</div>
+          <div className="space-y-3">
+            <div><label className="text-xs text-slate-500">รหัสพนักงาน</label>
+              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={emp} onChange={e=>setEmp(e.target.value)} /></div>
+            <div><label className="text-xs text-slate-500">Username</label>
+              <input className="w-full border rounded-xl px-3 py-2 mt-1" value={user} onChange={e=>setUser(e.target.value)} /></div>
+            <div><label className="text-xs text-slate-500">Password (ปัจจุบัน/รหัสชั่วคราว)</label>
+              <div className="mt-1"><PasswordInput value={oldp} onChange={e=>setOldp(e.target.value)} /></div></div>
+            <div><label className="text-xs text-slate-500">Password ใหม่</label>
+              <div className="mt-1"><PasswordInput value={p1} onChange={e=>setP1(e.target.value)} /></div></div>
+            <div><label className="text-xs text-slate-500">ยืนยัน Password ใหม่</label>
+              <div className="mt-1"><PasswordInput value={p2} onChange={e=>setP2(e.target.value)} /></div></div>
+
+            {err && <div className="text-sm text-rose-600">{err}</div>}
+            {msg && <div className="text-sm text-emerald-600">{msg}</div>}
+
+            <div className="flex gap-2">
+              <button className="rounded-xl bg-slate-900 text-white px-4 py-2 disabled:opacity-50"
+                      onClick={submit} disabled={busy}>{busy?'กำลังดำเนินการ...':'บันทึกการเปลี่ยนรหัส'}</button>
               <button className="rounded-xl border px-4 py-2" onClick={onDone}>กลับ</button>
             </div>
           </div>
@@ -301,7 +356,6 @@ async function callApi(action, payload) {
   function CheckoutModal({ open, onClose, user, cart, items, setItems, setUser }){
     if(!open) return null;
     const total = cart.reduce((s,c)=> s + c.points*c.qty, 0);
-    const changeQty = (id,qty)=> setItems(prev=> prev); // no-op (จัดการใน cart ด้านนอกหากต้องการ)
 
     const doCheckout = async ()=>{
       try{
@@ -365,7 +419,7 @@ async function callApi(action, payload) {
   }
 
   function App(){
-    const [mode,setMode] = useState('login');          // login | register | forgot | app
+    const [mode,setMode] = useState('login');          // login | register | forgot | changepw | app
     const [registerKey,setRegisterKey] = useState(0);  // force-remount Register
     const [user,setUser]=useState(null);
     const [items,setItems]=useState(ITEMS);
@@ -377,10 +431,12 @@ async function callApi(action, payload) {
         onOK={(u)=>{ setUser(u); setMode('app'); }}
         onOpenRegister={()=>{ setRegisterKey(k=>k+1); setMode('register'); }}
         onOpenForgot={()=>setMode('forgot')}
+        onOpenChangePass={()=>setMode('changepw')}
       />
     );
     if(mode==='register') return <Register key={registerKey} onDone={()=>setMode('login')} />;
     if(mode==='forgot')   return <Forgot onDone={()=>setMode('login')} />;
+    if(mode==='changepw') return <ChangePassword onDone={()=>setMode('login')} />;
 
     return (
       <div>
