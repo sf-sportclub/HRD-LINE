@@ -18,14 +18,13 @@
   const fmt = new Intl.NumberFormat('th-TH');
 
   /* ====== URL Apps Script /exec ของคุณ ====== */
-  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxDGSsPsIgyXhQZ4EuHdfshDQyMRK_DfNKSswtRjrMnM98lV_aVE_H6i9Na6vlNbmVC1w/exec'; // แก้เป็นของคุณ
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwcYfT0NxBSGphJw8U8JUFashnZXlLrfWaJE8-gfF6787zR-VUxv2If8ccLICn4f7NToQ/exec'; // <-- แก้เป็นของคุณ
 
   /* ====== fetch แบบ simple request (เลี่ยง preflight) ====== */
   async function callApi(action, payload) {
     const res = await fetch(WEBAPP_URL, {
       method: 'POST',
-      // อย่าใส่ headers ใด ๆ เพื่อให้เป็น simple request
-      body: JSON.stringify({ action, payload }), // ส่งเป็น text/plain โดยปริยาย
+      body: JSON.stringify({ action, payload }), // text/plain โดยปริยาย
     });
     const text = await res.text();
     try { return JSON.parse(text); }
@@ -75,7 +74,7 @@
             <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white grid place-items-center">SF</div>
             <div className="font-semibold">HRD Rewards</div>
           </div>
-          <div className="text-sm text-slate-500 mb-3">เข้าสู่ระบบด้วย <b>username</b> / <b>password</b> จาก Sheet1 (คอลัมน์ I,J)</div>
+        <div className="text-sm text-slate-500 mb-3">เข้าสู่ระบบด้วย <b>username</b> / <b>password</b> จาก Sheet1 (คอลัมน์ I,J)</div>
           <div className="space-y-3">
             <div>
               <label className="text-xs text-slate-500">username</label>
@@ -109,6 +108,7 @@
     const [form,setForm] = useState(initialForm);
     const [err,setErr] = useState('');
     const [okMsg,setOkMsg] = useState('');
+    const [busy,setBusy] = useState(false);
 
     const resetAll = () => { setStep(1); setChecking(false); setExistsInfo(null); setForm(initialForm); setErr(''); setOkMsg(''); };
     const goBackToLogin = () => { resetAll(); onDone(); };
@@ -126,12 +126,13 @@
     };
 
     const submit = async()=>{
-      setErr(''); setOkMsg('');
+      setErr(''); setOkMsg(''); setBusy(true);
       try{
         const r = await apiRegister(form);
         if(!r.ok) throw new Error(r.message||'สมัครไม่สำเร็จ');
-        setOkMsg('สมัครสำเร็จ! เข้าสู่ระบบได้เลย');
-      }catch(ex){ setErr(String(ex)); }
+        setOkMsg('สมัครสำเร็จ! กำลังกลับไปหน้าเข้าสู่ระบบ…');
+        setTimeout(()=> { goBackToLogin(); }, 1200);  // ← เด้งกลับหน้า Login อัตโนมัติ
+      }catch(ex){ setErr(String(ex)); } finally { setBusy(false); }
     };
 
     return (
@@ -215,7 +216,9 @@
               {okMsg && <div className="text-sm text-emerald-600">{okMsg}</div>}
 
               <div className="flex gap-2">
-                <button className="rounded-xl bg-slate-900 text-white px-4 py-2" onClick={submit}>สมัครสมาชิก</button>
+                <button className="rounded-xl bg-slate-900 text-white px-4 py-2" onClick={submit} disabled={busy}>
+                  {busy?'กำลังสมัคร…':'สมัครสมาชิก'}
+                </button>
                 <button className="rounded-xl border px-4 py-2" onClick={resetAll}>ย้อนกลับ</button>
                 <button className="text-sm underline ml-auto" onClick={goBackToLogin}>กลับไปหน้าเข้าสู่ระบบ</button>
               </div>
@@ -233,7 +236,8 @@
       try{
         const r = await apiForgot(emp.trim(), email.trim());
         if(!r.ok) throw new Error(r.message||'ดำเนินการไม่สำเร็จ');
-        setMsg(r.emailed ? 'ส่งอีเมลรหัสชั่วคราวแล้ว' : 'รีเซ็ตสำเร็จ (ส่งอีเมลไม่สำเร็จ)');
+        setMsg('ส่งอีเมลรหัสชั่วคราวแล้ว กำลังกลับไปหน้าเข้าสู่ระบบ…');
+        setTimeout(()=> onDone(), 1200); // ← เด้งกลับหน้า Login
       }catch(ex){ setErr(String(ex)); } finally{ setBusy(false); }
     };
     return (
@@ -252,7 +256,9 @@
             {err && <div className="text-sm text-rose-600">{err}</div>}
             {msg && <div className="text-sm text-emerald-600">{msg}</div>}
             <div className="flex gap-2">
-              <button className="rounded-xl bg-slate-900 text-white px-4 py-2" onClick={submit} disabled={busy}>{busy?'กำลังดำเนินการ...':'ส่งคำขอ'}</button>
+              <button className="rounded-xl bg-slate-900 text-white px-4 py-2" onClick={submit} disabled={busy}>
+                {busy?'กำลังดำเนินการ...':'ส่งคำขอ'}
+              </button>
               <button className="rounded-xl border px-4 py-2" onClick={onDone}>กลับ</button>
             </div>
           </div>
@@ -281,7 +287,8 @@
       try{
         const r = await apiChangePass(emp.trim(), user.trim(), oldp, p1);
         if(!r.ok) throw new Error(r.message||'เปลี่ยนรหัสผ่านไม่สำเร็จ');
-        setMsg('เปลี่ยนรหัสผ่านสำเร็จ! กรุณาเข้าสู่ระบบด้วยรหัสใหม่');
+        setMsg('เปลี่ยนรหัสผ่านสำเร็จ! กำลังกลับไปหน้าเข้าสู่ระบบ…');
+        setTimeout(()=> onDone(), 1200); // ← เด้งกลับหน้า Login
       }catch(ex){ setErr(String(ex)); } finally{ setBusy(false); }
     };
 
@@ -479,8 +486,7 @@
     );
   }
 
-  const root = ReactDOM.createRoot(document.getElementById('root'));
-  root.render(<App />);
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
