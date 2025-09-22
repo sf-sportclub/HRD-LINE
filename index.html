@@ -17,18 +17,22 @@
   const { useState } = React;
   const fmt = new Intl.NumberFormat('th-TH');
 
-  /* ====== ชี้ไปยัง Apps Script Web App ของคุณ ====== */
-  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwcYfT0NxBSGphJw8U8JUFashnZXlLrfWaJE8-gfF6787zR-VUxv2If8ccLICn4f7NToQ/exec'; // <-- แก้เป็นของจริง
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwcYfT0NxBSGphJw8U8JUFashnZXlLrfWaJE8-gfF6787zR-VUxv2If8ccLICn4f7NToQ/exec'; // /exec ของจริง
 
-  async function callApi(action, payload){
-    const res = await fetch(WEBAPP_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }, // อย่าเพิ่ม header แปลก ๆ เพื่อลดปัญหา CORS
-      body: JSON.stringify({ action, payload })
-    });
-    const data = await res.json().catch(()=>({ ok:false, message:'Bad JSON' }));
-    return data;
-  }
+async function callApi(action, payload) {
+  const res = await fetch(WEBAPP_URL, {
+    method: 'POST',
+    // อย่าใส่ headers ใด ๆ เพื่อให้เป็น simple request (ไม่เกิด preflight)
+    // headers: { 'Content-Type': 'application/json' },  // ← ลบออก
+    body: JSON.stringify({ action, payload }),          // ส่งเป็น text/plain โดยปริยาย
+    // credentials: 'omit' // ปล่อยค่า default ก็ได้
+  });
+
+  // อ่านเป็นข้อความก่อน แล้วค่อย parse (กันกรณี content-type ไม่ใช่ application/json)
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { return { ok:false, message:'Bad JSON from server', raw:text }; }
+}
 
   // === API adapters ===
   const apiLogin     = (u,p)         => callApi('login',        { username:u, password:p });
