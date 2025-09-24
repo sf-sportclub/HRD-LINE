@@ -24,6 +24,7 @@
       --text:#0f172a;             /* slate-900 */
       --muted:#475569;            /* slate-600 */
       --ring:#d0d7e2;             /* ขอบการ์ด */
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
     *{ font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif; }
     html,body{ background:var(--bg); color:var(--text); }
@@ -64,13 +65,25 @@
         radial-gradient(80% 120% at 90% 10%, rgba(245,158,11,.12) 0%, rgba(245,158,11,0) 60%),
         var(--bg);
     }
+
+    /* ----- Mobile Bottom Tab Bar ----- */
+    .mobile-tabbar{
+      position: fixed; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,.9);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--ring);
+      padding: .4rem .6rem calc(.4rem + var(--safe-bottom));
+      z-index: 40;
+    }
+    .no-scrollbar::-webkit-scrollbar{ display:none; }
+    .no-scrollbar{ -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
   <script type="text/babel">
-  const {useState,useEffect} = React;
+  const {useState,useEffect,useMemo} = React;
   const fmt = new Intl.NumberFormat('th-TH');
 
   /* ==================== CONFIG / API ==================== */
@@ -78,9 +91,13 @@
   const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyD7NkmysepKUaB28rSyyklsQ_uFmXUy8qU001l1Ujccm4hSduSNXU2-PzKV8lRh7y1RQ/exec';
 
   async function callApi(action, payload){
-    const res = await fetch(WEBAPP_URL, { method:'POST', body: JSON.stringify({ action, payload }) });
-    const text = await res.text();
-    try{ return JSON.parse(text); }catch{ return { ok:false, message:'Bad JSON', raw:text }; }
+    try{
+      const res = await fetch(WEBAPP_URL, { method:'POST', body: JSON.stringify({ action, payload }) });
+      const text = await res.text();
+      try{ return JSON.parse(text); }catch{ return { ok:false, message:'Bad JSON', raw:text }; }
+    }catch(e){
+      return { ok:false, message:String(e) };
+    }
   }
 
   // Public
@@ -97,17 +114,25 @@
   const apiGetCatalog   = ()=> callApi('getCatalog', {});
 
   // Admin
-  const apiA_UpsertItem = (admin,p)=> callApi('adminUpsertItem', {...p, admin});    // Sheet7
+  const apiA_UpsertItem = (admin,p)=> callApi('adminUpsertItem', {...p, admin});    // Catalog
   const apiA_DeleteItem = (admin,id)=> callApi('adminDeleteItem', { admin, id });
-  const apiA_UpsertNews = (admin,p)=> callApi('adminUpsertNews', {...p, admin});    // Sheet4
+  const apiA_UpsertNews = (admin,p)=> callApi('adminUpsertNews', {...p, admin});    // (ถ้าฝั่ง .gs เพิ่ม)
   const apiA_DeleteNews = (admin,id)=> callApi('adminDeleteNews', { admin, id });
-  const apiA_UpsertRule = (admin,p)=> callApi('adminUpsertRule', {...p, admin});    // Sheet5
+  const apiA_UpsertRule = (admin,p)=> callApi('adminUpsertRule', {...p, admin});
   const apiA_DeleteRule = (admin,title)=> callApi('adminDeleteRule', { admin, title });
-  const apiA_UpsertTask = (admin,p)=> callApi('adminUpsertTask', {...p, admin});    // Sheet6
+  const apiA_UpsertTask = (admin,p)=> callApi('adminUpsertTask', {...p, admin});
   const apiA_DeleteTask = (admin,title)=> callApi('adminDeleteTask', { admin, title });
+
+  /* ==================== LocalStorage Keys ==================== */
+  const LS_USER='hrd_user';
+  const LS_CATALOG='hrd_catalog';
+  const LS_NEWS_RULES='hrd_news_rules';
+  const LS_TASKS='hrd_tasks';
+  const LS_TAB='hrd_tab';
 
   /* ==================== Utils & Small UI ==================== */
   const fileToBase64 = f => new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(f); });
+  const isUrl = (s)=> /^https?:\/\//i.test(String(s||'')) || /^data:image\//i.test(String(s||''));
 
   const Field = ({label,children})=>(
     <div>
@@ -127,6 +152,18 @@
       </div>
     );
   }
+
+  const ImgOrEmoji = ({src, size='h-12 w-12'})=>{
+    if(isUrl(src)){
+      return (
+        <div className={`${size} rounded-xl bg-slate-50 border border-slate-200 grid place-items-center overflow-hidden`}>
+          <img src={src} className="max-h-10 max-w-10 object-contain"
+               onError={(e)=>{ e.currentTarget.style.display='none'; e.currentTarget.parentElement.textContent='🎁'; }}/>
+        </div>
+      );
+    }
+    return <div className={`${size} grid place-items-center text-3xl`}>{src||'🎁'}</div>;
+  };
 
   /* ==================== AUTH PAGES ==================== */
   function Login({ onOK, openRegister, openForgot, openChangePwd }){
@@ -289,14 +326,17 @@
             <div className="text-xs text-slate-500">Premium Rewards</div>
           </div>
         </div>
-        <nav className="hidden md:flex items-center gap-2">
+
+        {/* บนเดสก์ท็อป: แท็บแนวนอนเลื่อนขวา-ซ้ายได้ */}
+        <nav className="hidden md:flex items-center gap-2 max-w-[50vw] overflow-x-auto no-scrollbar">
           {[
             ['home','หน้าแรก'],['catalog','แลกของ'],['tasks','ภารกิจ'],['news','ประกาศ/กติกา'],['me','คะแนนของฉัน'],
             ...(user?.role?.toLowerCase()==='admin' ? [['admin','Admin']] : []),
           ].map(([id,label])=>(
-            <button key={id} onClick={()=>setTab(id)} className={"btn "+(tab===id?'btn-premium':'btn-ghost')}>{label}</button>
+            <button key={id} onClick={()=>setTab(id)} className={"btn whitespace-nowrap "+(tab===id?'btn-premium':'btn-ghost')}>{label}</button>
           ))}
         </nav>
+
         <div className="flex items-center gap-3">
           <div className="hidden sm:block text-right">
             <div className="text-sm font-medium">{user?.name||'-'}</div>
@@ -310,7 +350,7 @@
   );
 
   const Home = ({ user, newsCount, tasksCount, catalogCount })=>(
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24 md:pb-8">
       <div className="card">
         <div className="flex items-center justify-between">
           <div>
@@ -334,7 +374,7 @@
   );
 
   const Catalog = ({ user, items, cart, setCart, openCart })=>(
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24 md:pb-8">
       <div className="card flex items-center justify-between">
         <div>คะแนนคุณ: <b className="text-slate-900">{fmt.format(user.points)} แต้ม</b></div>
         <button className="btn btn-primary" onClick={openCart}>🛒 ตะกร้า {cart.reduce((s,c)=>s+c.qty,0)||''}</button>
@@ -343,9 +383,9 @@
         {items.map(r=>(
           <div key={r.id} className="card flex flex-col">
             <div className="flex items-center gap-3">
-              <div className="text-3xl">{r.image || r.img || '🎁'}</div>
-              <div className="flex-1">
-                <div className="font-medium">{r.name}</div>
+              <ImgOrEmoji src={r.image || r.img} />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium truncate" title={r.name}>{r.name}</div>
                 <div className="text-xs text-slate-500 mt-1 flex gap-2 flex-wrap">
                   <span className="chip">{r.points} แต้ม</span>
                   <span className="chip">คงเหลือ {r.stock||'-'}</span>
@@ -374,7 +414,7 @@
       alert('ส่งภารกิจเรียบร้อย'); setOpen(null); setDate(''); setImg(null); setTab('home');
     };
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 pb-24 md:pb-8">
         <div className="card">
           <div className="font-semibold mb-2">ภารกิจที่เปิดรับ</div>
           {!tasks.length ? <div className="text-sm text-slate-500">ยังไม่มีภารกิจ</div> :
@@ -411,7 +451,7 @@
   };
 
   const News = ({ news, rules })=>(
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24 md:pb-8">
       <div className="card">
         <div className="font-semibold mb-2">ประกาศล่าสุด</div>
         {!news.length ? <div className="text-sm text-slate-500">ไม่มีประกาศ</div> :
@@ -420,7 +460,9 @@
               <li key={i} className="border rounded-xl p-3">
                 <div className="font-semibold">{n.title}</div>
                 <div className="text-sm text-slate-600">{n.content}</div>
-                {!!n.image && <img src={n.image} className="mt-2 rounded-lg max-h-40 object-cover" />}
+                {!!n.image && (isUrl(n.image)
+                  ? <img src={n.image} className="mt-2 rounded-lg max-h-40 object-cover" />
+                  : <div className="text-3xl mt-2">{n.image}</div>)}
                 <div className="text-xs text-slate-400 mt-1">{n.createdAt||''}</div>
               </li>
             ))}
@@ -444,7 +486,7 @@
     </div>
   );
 
-  // แผงแอดมิน (สินค้าจาก Sheet7 + จัดการ News/Rules/Tasks)
+  // แผงแอดมิน
   const Admin = ({ catalog, setCatalog, news, setNews, rules, setRules, tasks, setTasks })=>{
     const [cred,setCred]=useState({ username:'admin1959', password:'1959' });
     const [tab,setTab]=useState('rewards');
@@ -457,31 +499,31 @@
       const r = await apiA_UpsertItem(cred, item);
       if(!r.ok) return alert(r.message||'บันทึกไม่สำเร็จ');
       alert('บันทึกแล้ว'); setItem({ id:'', name:'', points:0, stock:0, image:'🎁' });
-      const g = await apiGetCatalog(); if(g.ok) setCatalog(g.items||[]);
+      const g = await apiGetCatalog(); if(g.ok) { setCatalog(g.items||[]); localStorage.setItem(LS_CATALOG, JSON.stringify(g.items||[])); }
     };
     const delItem = async(id)=>{
       if(!confirm('ลบสินค้านี้?')) return;
       const r = await apiA_DeleteItem(cred, id); if(!r.ok) return alert(r.message||'ลบไม่สำเร็จ');
-      const g = await apiGetCatalog(); if(g.ok) setCatalog(g.items||[]);
+      const g = await apiGetCatalog(); if(g.ok) { setCatalog(g.items||[]); localStorage.setItem(LS_CATALOG, JSON.stringify(g.items||[])); }
     };
 
     // News
     const [n,setN]=useState({ id:'', title:'', content:'', image:'', createdAt:new Date().toISOString().slice(0,10) });
-    const saveNews = async()=>{ const r=await apiA_UpsertNews(cred,n); if(!r.ok) return alert(r.message||'บันทึกไม่สำเร็จ'); alert('บันทึกแล้ว'); const d=await apiGetNewsRules(); if(d.ok) setNews(d.news||[]); setN({ id:'', title:'', content:'', image:'', createdAt:new Date().toISOString().slice(0,10) }); };
-    const delNews = async(id)=>{ if(!confirm('ลบข่าวนี้?')) return; const r=await apiA_DeleteNews(cred,id); if(!r.ok) return alert(r.message||'ลบไม่สำเร็จ'); const d=await apiGetNewsRules(); if(d.ok) setNews(d.news||[]); };
+    const saveNews = async()=>{ const r=await apiA_UpsertNews(cred,n); if(!r.ok) return alert(r.message||'บันทึกไม่สำเร็จ'); alert('บันทึกแล้ว'); const d=await apiGetNewsRules(); if(d.ok){ setNews(d.news||[]); setRules(d.rules||[]); localStorage.setItem(LS_NEWS_RULES, JSON.stringify({news:d.news||[],rules:d.rules||[]})); } setN({ id:'', title:'', content:'', image:'', createdAt:new Date().toISOString().slice(0,10) }); };
+    const delNews = async(id)=>{ if(!confirm('ลบข่าวนี้?')) return; const r=await apiA_DeleteNews(cred,id); if(!r.ok) return alert(r.message||'ลบไม่สำเร็จ'); const d=await apiGetNewsRules(); if(d.ok){ setNews(d.news||[]); setRules(d.rules||[]); localStorage.setItem(LS_NEWS_RULES, JSON.stringify({news:d.news||[],rules:d.rules||[]})); } };
 
     // Rules
     const [rl,setRl]=useState({ title:'', content:'' });
-    const saveRule = async()=>{ const r=await apiA_UpsertRule(cred,rl); if(!r.ok) return alert(r.message||'บันทึกไม่สำเร็จ'); alert('บันทึกแล้ว'); const d=await apiGetNewsRules(); if(d.ok) setRules(d.rules||[]); setRl({ title:'', content:'' }); };
-    const delRule = async(title)=>{ if(!confirm('ลบกติกานี้?')) return; const r=await apiA_DeleteRule(cred,title); if(!r.ok) return alert(r.message||'ลบไม่สำเร็จ'); const d=await apiGetNewsRules(); if(d.ok) setRules(d.rules||[]); };
+    const saveRule = async()=>{ const r=await apiA_UpsertRule(cred,rl); if(!r.ok) return alert(r.message||'บันทึกไม่สำเร็จ'); alert('บันทึกแล้ว'); const d=await apiGetNewsRules(); if(d.ok){ setRules(d.rules||[]); setNews(d.news||[]); localStorage.setItem(LS_NEWS_RULES, JSON.stringify({news:d.news||[],rules:d.rules||[]})); } setRl({ title:'', content:'' }); };
+    const delRule = async(title)=>{ if(!confirm('ลบกติกานี้?')) return; const r=await apiA_DeleteRule(cred,title); if(!r.ok) return alert(r.message||'ลบไม่สำเร็จ'); const d=await apiGetNewsRules(); if(d.ok){ setRules(d.rules||[]); setNews(d.news||[]); localStorage.setItem(LS_NEWS_RULES, JSON.stringify({news:d.news||[],rules:d.rules||[]})); } };
 
     // Tasks
     const [tk,setTk]=useState({ title:'', detail:'' });
-    const saveTask = async()=>{ const r=await apiA_UpsertTask(cred,tk); if(!r.ok) return alert(r.message||'บันทึกไม่สำเร็จ'); alert('บันทึกแล้ว'); const d=await apiGetTasks(); if(d.ok) setTasks(d.tasks||[]); setTk({ title:'', detail:'' }); };
-    const delTask = async(title)=>{ if(!confirm('ลบภารกิจนี้?')) return; const r=await apiA_DeleteTask(cred,title); if(!r.ok) return alert(r.message||'ลบไม่สำเร็จ'); const d=await apiGetTasks(); if(d.ok) setTasks(d.tasks||[]); };
+    const saveTask = async()=>{ const r=await apiA_UpsertTask(cred,tk); if(!r.ok) return alert(r.message||'บันทึกไม่สำเร็จ'); alert('บันทึกแล้ว'); const d=await apiGetTasks(); if(d.ok){ setTasks(d.tasks||[]); localStorage.setItem(LS_TASKS, JSON.stringify(d.tasks||[])); } setTk({ title:'', detail:'' }); };
+    const delTask = async(title)=>{ if(!confirm('ลบภารกิจนี้?')) return; const r=await apiA_DeleteTask(cred,title); if(!r.ok) return alert(r.message||'ลบไม่สำเร็จ'); const d=await apiGetTasks(); if(d.ok){ setTasks(d.tasks||[]); localStorage.setItem(LS_TASKS, JSON.stringify(d.tasks||[])); } };
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 pb-24 md:pb-8">
         <div className="card">
           <div className="font-semibold mb-2">สิทธิ์แอดมิน</div>
           <div className="grid sm:grid-cols-2 gap-2">
@@ -493,7 +535,7 @@
         <div className="flex gap-2 flex-wrap">
           {['rewards','news','rules','tasks'].map(id=>(
             <button key={id} className={"btn "+(tab===id?'btn-premium':'btn-ghost')} onClick={()=>setTab(id)}>
-              {id==='rewards'?'ของแลก (Sheet7)':id==='news'?'ประกาศ (Sheet4)':id==='rules'?'กติกา (Sheet5)':'ภารกิจ (Sheet6)'}
+              {id==='rewards'?'ของแลก (Catalog)':id==='news'?'ประกาศ (Sheet4)':id==='rules'?'กติกา (Sheet5)':'ภารกิจ (Sheet6)'}
             </button>
           ))}
         </div>
@@ -521,12 +563,13 @@
             <div className="card overflow-auto">
               <div className="font-semibold mb-2">รายการของแลก</div>
               <table className="w-full text-sm">
-                <thead className="bg-slate-50"><tr><th className="p-2 text-left">ID</th><th className="p-2 text-left">ชื่อ</th><th className="p-2 text-left">แต้ม</th><th className="p-2 text-left">สต็อก</th><th className="p-2"></th></tr></thead>
+                <thead className="bg-slate-50"><tr><th className="p-2 text-left">ID</th><th className="p-2 text-left">รูป</th><th className="p-2 text-left">ชื่อ</th><th className="p-2 text-left">แต้ม</th><th className="p-2 text-left">สต็อก</th><th className="p-2"></th></tr></thead>
                 <tbody>
                   {catalog.map(it=>(
                     <tr key={it.id} className="border-t">
                       <td className="p-2">{it.id}</td>
-                      <td className="p-2">{it.image||'🎁'} {it.name}</td>
+                      <td className="p-2">{isUrl(it.image)? <img src={it.image} className="h-8 w-8 object-contain"/> : (it.image||'🎁')}</td>
+                      <td className="p-2">{it.name}</td>
                       <td className="p-2">{it.points}</td>
                       <td className="p-2">{it.stock||'-'}</td>
                       <td className="p-2 text-right">
@@ -535,7 +578,7 @@
                       </td>
                     </tr>
                   ))}
-                  {!catalog.length && <tr><td className="p-2" colSpan="5">ไม่มีข้อมูล</td></tr>}
+                  {!catalog.length && <tr><td className="p-2" colSpan="6">ไม่มีข้อมูล</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -549,7 +592,7 @@
               <Field label="ID (ว่าง=สร้างใหม่)"><input className="input" value={n.id} onChange={e=>setN({...n,id:e.target.value})}/></Field>
               <Field label="หัวข้อ"><input className="input" value={n.title} onChange={e=>setN({...n,title:e.target.value})}/></Field>
               <Field label="เนื้อหา"><textarea className="input" rows="4" value={n.content} onChange={e=>setN({...n,content:e.target.value})}></textarea></Field>
-              <Field label="รูป (URL)"><input className="input" value={n.image} onChange={e=>setN({...n,image:e.target.value})}/></Field>
+              <Field label="รูป (URL หรืออีโมจิ)"><input className="input" value={n.image} onChange={e=>setN({...n,image:e.target.value})}/></Field>
               <Field label="วันที่"><input type="date" className="input" value={n.createdAt} onChange={e=>setN({...n,createdAt:e.target.value})}/></Field>
               <div className="text-right"><button className="btn btn-primary" onClick={saveNews}>บันทึก</button></div>
             </div>
@@ -596,30 +639,6 @@
             </div>
           </div>
         )}
-
-        {tab==='tasks' && (
-          <div className="grid lg:grid-cols-2 gap-3">
-            <div className="card space-y-2">
-              <div className="font-semibold">เพิ่ม/แก้ไข ภารกิจ</div>
-              <Field label="หัวข้อ"><input className="input" value={tk.title} onChange={e=>setTk({...tk,title:e.target.value})}/></Field>
-              <Field label="รายละเอียด"><textarea className="input" rows="4" value={tk.detail} onChange={e=>setTk({...tk,detail:e.target.value})}></textarea></Field>
-              <div className="text-right"><button className="btn btn-primary" onClick={saveTask}>บันทึก</button></div>
-            </div>
-            <div className="card">
-              <div className="font-semibold mb-2">รายการภารกิจ</div>
-              <ul className="space-y-2">
-                {tasks.map((t,i)=>(
-                  <li key={i} className="border rounded-xl p-3 flex items-start gap-2">
-                    <div className="flex-1"><div className="font-medium">{t.title}</div><div className="text-sm text-slate-600">{t.detail}</div></div>
-                    <button className="btn btn-ghost mr-2" onClick={()=>setTk({ title:t.title, detail:t.detail })}>แก้ไข</button>
-                    <button className="btn btn-danger" onClick={()=>delTask(t.title)}>ลบ</button>
-                  </li>
-                ))}
-                {!tasks.length && <li className="text-slate-500">ไม่มีข้อมูล</li>}
-              </ul>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
@@ -634,7 +653,9 @@
       const note = cart.map(c=>`${c.name} x${c.qty}`).join(', ');
       const r = await apiRedeem(user.id, total, note);
       if(!r.ok) return alert(r.message||'ตัดแต้มไม่สำเร็จ');
-      alert('แลกสำเร็จ'); onOK(); onClose();
+      alert('แลกสำเร็จ');
+      onOK();
+      onClose();
     };
     return (
       <div className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-30">
@@ -647,7 +668,7 @@
             <ul className="space-y-3">
               {cart.map(c=>(
                 <li key={c.id} className="flex items-center gap-3 border rounded-xl p-3">
-                  <div className="text-2xl">{c.image||c.img||'🎁'}</div>
+                  <ImgOrEmoji src={c.image||c.img} size="h-10 w-10"/>
                   <div className="flex-1">
                     <div className="font-medium">{c.name}</div>
                     <div className="text-xs text-slate-500">{c.points} แต้ม/ชิ้น</div>
@@ -678,40 +699,103 @@
     );
   };
 
+  /* ==================== Mobile Bottom Tabs ==================== */
+  const MobileTabBar = ({tab,setTab,isAdmin})=>{
+    const tabs = [
+      {id:'home', label:'หน้าแรก', icon:'🏠'},
+      {id:'catalog', label:'แลกของ', icon:'🎁'},
+      {id:'tasks', label:'ภารกิจ', icon:'✅'},
+      {id:'news', label:'ประกาศ', icon:'🗞️'},
+      {id:'me', label:'ของฉัน', icon:'👤'},
+      ...(isAdmin ? [{id:'admin', label:'แอดมิน', icon:'🛠️'}] : []),
+    ];
+    return (
+      <nav className="mobile-tabbar md:hidden">
+        <div className="grid grid-cols-5 gap-1" style={{gridTemplateColumns:`repeat(${tabs.length}, minmax(0,1fr))`}}>
+          {tabs.map(t=>(
+            <button key={t.id}
+              onClick={()=>setTab(t.id)}
+              className={"flex flex-col items-center py-1 rounded-xl text-xs "+(tab===t.id?'bg-indigo-50 text-indigo-700':'text-slate-600')}>
+              <div className="text-lg leading-none">{t.icon}</div>
+              <div className="leading-tight mt-0.5">{t.label}</div>
+            </button>
+          ))}
+        </div>
+      </nav>
+    );
+  };
+
   /* ==================== ROOT APP ==================== */
   function App(){
     const [mode,setMode]=useState('login');   // login | register | forgot | change | app
     const [user,setUser]=useState(null);
-    const [tab,setTab]=useState('home');
+    const [tab,setTab]=useState(localStorage.getItem(LS_TAB)||'home');
     const [catalog,setCatalog]=useState([]);
     const [news,setNews]=useState([]), [rules,setRules]=useState([]);
     const [tasks,setTasks]=useState([]);
     const [cart,setCart]=useState([]), [openCart,setOpenCart]=useState(false);
 
+    // คงสถานะล็อกอินหลังรีหน้า
+    useEffect(()=>{
+      const saved = localStorage.getItem(LS_USER);
+      if(saved){
+        try{ const u = JSON.parse(saved); setUser(u); setMode('app'); }catch{}
+      }
+    }, []);
+
+    // โหลดข้อมูล: ใช้ cache ก่อน แล้วค่อยรีเฟรชจาก API
     useEffect(()=>{
       if(mode!=='app') return;
-      apiGetCatalog().then(r=>{ if(r.ok) setCatalog(r.items||[]); });
-      apiGetNewsRules().then(r=>{ if(r.ok){ setNews(r.news||[]); setRules(r.rules||[]); } });
-      apiGetTasks().then(r=>{ if(r.ok) setTasks(r.tasks||[]); });
+
+      // 1) เติมจาก cache เพื่อให้แสดงไว
+      try{
+        const c = JSON.parse(localStorage.getItem(LS_CATALOG)||'[]'); if(Array.isArray(c)) setCatalog(c);
+      }catch{}
+      try{
+        const nr = JSON.parse(localStorage.getItem(LS_NEWS_RULES)||'{}');
+        if(nr && nr.news) setNews(nr.news||[]);
+        if(nr && nr.rules) setRules(nr.rules||[]);
+      }catch{}
+      try{
+        const t = JSON.parse(localStorage.getItem(LS_TASKS)||'[]'); if(Array.isArray(t)) setTasks(t);
+      }catch{}
+
+      // 2) ดึงสดพร้อมกัน
+      (async()=>{
+        const [gc, gr, gt] = await Promise.all([apiGetCatalog(), apiGetNewsRules(), apiGetTasks()]);
+        if(gc?.ok){ setCatalog(gc.items||[]); localStorage.setItem(LS_CATALOG, JSON.stringify(gc.items||[])); }
+        if(gr?.ok){
+          setNews(gr.news||[]); setRules(gr.rules||[]);
+          localStorage.setItem(LS_NEWS_RULES, JSON.stringify({news:gr.news||[], rules:gr.rules||[]}));
+        }
+        if(gt?.ok){ setTasks(gt.tasks||[]); localStorage.setItem(LS_TASKS, JSON.stringify(gt.tasks||[])); }
+      })();
     }, [mode]);
 
-    if(mode==='login')    return <Login onOK={u=>{setUser(u); setMode('app'); setTab('home');}} openRegister={()=>setMode('register')} openForgot={()=>setMode('forgot')} openChangePwd={()=>setMode('change')} />;
+    // บันทึกแท็บล่าสุด (มือถือกลับมาจะจำแท็บ)
+    useEffect(()=>{ localStorage.setItem(LS_TAB, tab); }, [tab]);
+
+    if(mode==='login')    return <Login onOK={u=>{setUser(u); localStorage.setItem(LS_USER, JSON.stringify(u)); setMode('app'); setTab('home');}} openRegister={()=>setMode('register')} openForgot={()=>setMode('forgot')} openChangePwd={()=>setMode('change')} />;
     if(mode==='register') return <Register back={()=>setMode('login')} />;
     if(mode==='forgot')   return <Forgot back={()=>setMode('login')} />;
     if(mode==='change')   return <ChangePassword back={()=>setMode('login')} />;
 
     const cartCount = cart.reduce((s,c)=>s+c.qty,0);
 
+    const onLogout = ()=>{
+      setMode('login'); setUser(null); setCart([]); localStorage.removeItem(LS_USER);
+    };
+
     return (
       <div>
-        <Header user={user} tab={tab} setTab={setTab} onLogout={()=>{ setMode('login'); setUser(null); setCart([]); }} cartCount={cartCount}/>
+        <Header user={user} tab={tab} setTab={setTab} onLogout={onLogout} cartCount={cartCount}/>
         <main className="max-w-6xl mx-auto px-4 py-6">
           {tab==='home'   && <Home user={user} newsCount={news.length} tasksCount={tasks.length} catalogCount={catalog.length}/>}
           {tab==='catalog'&& <Catalog user={user} items={catalog} cart={cart} setCart={setCart} openCart={()=>setOpenCart(true)}/>}
           {tab==='tasks'  && <Tasks tasks={tasks} user={user} setTab={setTab}/>}
           {tab==='news'   && <News news={news} rules={rules}/>}
           {tab==='me'     && (
-            <div className="space-y-4">
+            <div className="space-y-4 pb-24 md:pb-8">
               <div className="card">
                 <div className="flex items-center justify-between">
                   <div>
@@ -729,9 +813,11 @@
             : <div className="card">ไม่อนุญาต</div>)}
         </main>
 
+        <MobileTabBar tab={tab} setTab={setTab} isAdmin={user?.role?.toLowerCase()==='admin'} />
+
         <CartModal open={openCart} cart={cart} setCart={setCart} user={user}
           onClose={()=>setOpenCart(false)}
-          onOK={()=>{ setCart([]); apiGetPoints(user.id).then(r=>{ if(r.ok) setUser(u=>({...u,points:r.points}))}); }}/>
+          onOK={()=>{ setCart([]); apiGetPoints(user.id).then(r=>{ if(r.ok){ setUser(u=>{ const nu={...u,points:r.points}; localStorage.setItem(LS_USER, JSON.stringify(nu)); return nu; }); } }); }}/>
       </div>
     );
   }
