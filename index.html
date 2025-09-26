@@ -45,6 +45,11 @@
     .mobile-tabbar button{ flex:1; display:flex; flex-direction:column; align-items:center; font-size:.75rem; gap:.15rem; padding:.4rem .2rem; border-radius:.75rem; }
     .mobile-tabbar .active{ background:#eef2ff; color:#4338ca; }
     @media (min-width:768px){ .mobile-tabbar{ display:none; } }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner{ width:16px; height:16px; border:2px solid #e5e7eb; border-top-color:#4f46e5; border-radius:9999px; animation:spin .8s linear infinite; }
+    .spinner-white{ border-color:rgba(255,255,255,.5); border-top-color:#fff; }
   </style>
 </head>
 <body>
@@ -55,7 +60,7 @@
   const fmt = new Intl.NumberFormat('th-TH');
 
   /* ============ CONFIG / API ============ */
-  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzmdvAF7K8Yw0qRdtl1JCQqIptcJGp5j1XAmr2YyRIXHCpCG2h-F7qxgDMp8MhydI6s/exec';
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyv-85PyEWTfMfMvAYHoZzLqhP7to_LheJM9NEgjktehCOBRhGLcpqHuoTFk7LYGubk/exec';
 
   async function callApi(action, payload){
     const res = await fetch(WEBAPP_URL, { method:'POST', body: JSON.stringify({ action, payload }) });
@@ -126,7 +131,9 @@
             <Field label="Username"><input className="input" value={u} onChange={e=>setU(e.target.value)} /></Field>
             <Field label="Password"><PasswordInput value={p} onChange={e=>setP(e.target.value)} /></Field>
             {err && <div className="text-sm text-rose-600">{err}</div>}
-            <button className="btn btn-premium w-full disabled:opacity-50" disabled={busy}>{busy?'กำลังเข้าสู่ระบบ...':'เข้าสู่ระบบ'}</button>
+            <button className="btn btn-premium w-full disabled:opacity-50" disabled={busy}>
+              {busy ? <><span className="spinner spinner-white"></span> กำลังเข้าสู่ระบบ...</> : 'เข้าสู่ระบบ'}
+            </button>
             <div className="text-sm text-center text-slate-600">
               <button type="button" className="underline mr-3" onClick={openRegister}>สมัครสมาชิก</button>
               <button type="button" className="underline mr-3" onClick={openForgot}>ลืมรหัสผ่าน</button>
@@ -199,8 +206,12 @@
   }
   const Forgot = ({ back })=>{
     const [emp,setEmp]=useState(''), [email,setEmail]=useState(''), [err,setErr]=useState('');
+    const [sending,setSending]=useState(false);
     const submit = async()=>{
-      setErr(''); const r = await apiForgot(emp.trim(), email.trim());
+      if (sending) return;
+      setErr(''); setSending(true);
+      const r = await apiForgot(emp.trim(), email.trim());
+      setSending(false);
       if(!r.ok) return setErr(r.message||'ดำเนินการไม่สำเร็จ');
       alert(r.emailed?'ส่งรหัสชั่วคราวไปที่อีเมลแล้ว':'รีเซ็ตสำเร็จ (ส่งอีเมลไม่สำเร็จ)'); back();
     };
@@ -208,12 +219,14 @@
       <div className="min-h-screen grid place-items-center px-4">
         <div className="w-full max-w-md card space-y-3">
           <div className="flex items-center justify-between"><div className="font-semibold">ลืมรหัสผ่าน</div><button className="text-sm underline" onClick={back}>กลับ</button></div>
-          <Field label="รหัสพนักงาน"><input className="input" value={emp} onChange={e=>setEmp(e.target.value)} /></Field>
-          <Field label="Email (ตามคอลัมน์ H)"><input className="input" value={email} onChange={e=>setEmail(e.target.value)} /></Field>
+          <Field label="รหัสพนักงาน"><input className="input" value={emp} disabled={sending} onChange={e=>setEmp(e.target.value)} /></Field>
+          <Field label="Email (ตามคอลัมน์ H)"><input className="input" value={email} disabled={sending} onChange={e=>setEmail(e.target.value)} /></Field>
           {err && <div className="text-sm text-rose-600">{err}</div>}
           <div className="flex gap-2">
-            <button className="btn btn-primary" onClick={submit}>ส่งคำขอ</button>
-            <button className="btn btn-ghost" onClick={back}>กลับ</button>
+            <button className="btn btn-primary disabled:opacity-50" disabled={sending} onClick={submit}>
+              {sending ? <><span className="spinner spinner-white"></span> กำลังส่ง...</> : 'ส่งคำขอ'}
+            </button>
+            <button className="btn btn-ghost" disabled={sending} onClick={back}>กลับ</button>
           </div>
         </div>
       </div>
@@ -222,26 +235,33 @@
   const ChangePassword = ({ back })=>{
     const [f,setF]=useState({ employeeId:'', username:'', oldPassword:'', newPassword:'', newPassword2:'' });
     const [err,setErr]=useState('');
+    const [sending,setSending]=useState(false);
     const submit = async()=>{
+      if (sending) return;
       setErr('');
       if(!f.employeeId||!f.username||!f.oldPassword||!f.newPassword||!f.newPassword2) return setErr('กรอกข้อมูลให้ครบ');
       if(f.newPassword!==f.newPassword2) return setErr('ยืนยันรหัสผ่านไม่ตรงกัน');
-      const r = await apiChangePwd(f); if(!r.ok) return setErr(r.message||'เปลี่ยนรหัสไม่สำเร็จ');
+      setSending(true);
+      const r = await apiChangePwd(f);
+      setSending(false);
+      if(!r.ok) return setErr(r.message||'เปลี่ยนรหัสไม่สำเร็จ');
       alert('เปลี่ยนรหัสสำเร็จ! โปรดเข้าสู่ระบบใหม่'); back();
     };
     return (
       <div className="min-h-screen grid place-items-center px-4">
         <div className="w-full max-w-md card space-y-3">
           <div className="flex items-center justify-between"><div className="font-semibold">เปลี่ยนรหัสผ่าน</div><button className="text-sm underline" onClick={back}>กลับ</button></div>
-          <Field label="รหัสพนักงาน"><input className="input" value={f.employeeId} onChange={e=>setF({...f,employeeId:e.target.value})}/></Field>
-          <Field label="Username"><input className="input" value={f.username} onChange={e=>setF({...f,username:e.target.value})}/></Field>
+          <Field label="รหัสพนักงาน"><input className="input" disabled={sending} value={f.employeeId} onChange={e=>setF({...f,employeeId:e.target.value})}/></Field>
+          <Field label="Username"><input className="input" disabled={sending} value={f.username} onChange={e=>setF({...f,username:e.target.value})}/></Field>
           <Field label="รหัสผ่านเดิม"><PasswordInput value={f.oldPassword} onChange={e=>setF({...f,oldPassword:e.target.value})}/></Field>
           <Field label="รหัสผ่านใหม่"><PasswordInput value={f.newPassword} onChange={e=>setF({...f,newPassword:e.target.value})}/></Field>
           <Field label="ยืนยันรหัสผ่านใหม่"><PasswordInput value={f.newPassword2} onChange={e=>setF({...f,newPassword2:e.target.value})}/></Field>
           {err && <div className="text-sm text-rose-600">{err}</div>}
           <div className="flex gap-2">
-            <button className="btn btn-primary" onClick={submit}>ยืนยัน</button>
-            <button className="btn btn-ghost" onClick={back}>กลับ</button>
+            <button className="btn btn-primary disabled:opacity-50" disabled={sending} onClick={submit}>
+              {sending ? <><span className="spinner spinner-white"></span> กำลังบันทึก...</> : 'ยืนยัน'}
+            </button>
+            <button className="btn btn-ghost" disabled={sending} onClick={back}>กลับ</button>
           </div>
         </div>
       </div>
@@ -353,22 +373,29 @@
     </div>
   );
 
-  // ==== Tasks ====
+  // ==== Tasks (updated UX) ====
   const Tasks = ({ tasks, user, setTab, refresh })=>{
     const [open,setOpen]=useState(null); // title
     const [date,setDate]=useState(''), [img,setImg]=useState(null), [note,setNote]=useState('');
+    const [sending,setSending]=useState(false);
     const fileToBase64 = f => new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(f); });
     const selected = tasks.find(t=>t.title===open);
 
     const submit = async()=>{
       if(!open||!date) return alert('กรุณาใส่วันที่');
-      let b64=''; if(img) b64=await fileToBase64(img);
-      const r = await apiSubmitTask({ taskTitle:open, employeeId:user.id, date, imageBase64:b64, note });
-      if(!r.ok) return alert(r.message||'ส่งภารกิจไม่สำเร็จ');
-      alert(`ส่งภารกิจเรียบร้อย ${selected?.points?`(+${selected.points} แต้ม)`:''}`);
-      setOpen(null); setDate(''); setImg(null); setNote('');
-      await refresh?.(); // อัปเดตแต้ม/ประวัติ
-      setTab('home');
+      if (sending) return;
+      setSending(true);
+      try{
+        let b64=''; if(img) b64=await fileToBase64(img);
+        const r = await apiSubmitTask({ taskTitle:open, employeeId:user.id, date, imageBase64:b64, note });
+        if(!r.ok) { alert(r.message||'ส่งภารกิจไม่สำเร็จ'); setSending(false); return; }
+        alert(`ส่งภารกิจเรียบร้อย ${selected?.points?`(+${selected.points} แต้ม)`:''}`);
+        setOpen(null); setDate(''); setImg(null); setNote('');
+        await refresh?.(); // อัปเดตแต้ม/ประวัติ
+        setTab('home');
+      } finally {
+        setSending(false);
+      }
     };
     return (
       <div className="space-y-4 pb-16">
@@ -389,17 +416,30 @@
 
         {open && (
           <div className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-30">
-            <div className="w-full max-w-lg card">
+            <div className="w-full max-w-lg card relative">
+              {/* overlay loading */}
+              {sending && (
+                <div className="absolute inset-0 bg-white/70 rounded-2xl grid place-items-center z-10">
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <span className="spinner"></span>
+                    <span>กำลังส่ง...</span>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center justify-between mb-2">
                 <div className="font-semibold">ส่งภารกิจ: {open} {selected?.points ? <span className="chip ml-2">+{selected.points} แต้ม</span> : null}</div>
-                <button className="btn btn-ghost" onClick={()=>setOpen(null)}>ปิด</button>
+                <button className="btn btn-ghost" disabled={sending} onClick={()=>setOpen(null)}>ปิด</button>
               </div>
               <div className="space-y-3">
                 <Field label="รหัสพนักงาน"><input className="input" value={user.id} disabled/></Field>
-                <Field label="วันที่"><input type="date" className="input" value={date} onChange={e=>setDate(e.target.value)}/></Field>
-                <Field label="อัปโหลดรูปหลักฐาน (ถ้ามี)"><input type="file" accept="image/*" onChange={e=>setImg(e.target.files?.[0]||null)} /></Field>
-                <Field label="รายละเอียดเพิ่มเติม (ถ้ามี)"><input className="input" value={note} onChange={e=>setNote(e.target.value)} placeholder="ระบุข้อความสั้น ๆ (ตัวเลือก)"/></Field>
-                <div className="text-right"><button className="btn btn-primary" onClick={submit}>ส่งข้อมูล</button></div>
+                <Field label="วันที่"><input type="date" className="input" disabled={sending} value={date} onChange={e=>setDate(e.target.value)}/></Field>
+                <Field label="อัปโหลดรูปหลักฐาน (ถ้ามี)"><input type="file" accept="image/*" disabled={sending} onChange={e=>setImg(e.target.files?.[0]||null)} /></Field>
+                <Field label="รายละเอียดเพิ่มเติม (ตัวเลือก)"><input className="input" disabled={sending} value={note} onChange={e=>setNote(e.target.value)} placeholder="ระบุข้อความสั้น ๆ"/></Field>
+                <div className="text-right">
+                  <button className="btn btn-primary disabled:opacity-50" disabled={sending} onClick={submit}>
+                    {sending ? <><span className="spinner spinner-white"></span> กำลังส่ง...</> : 'ส่งข้อมูล'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -444,8 +484,8 @@
   // === History ===
   function History({ user, ledger, refresh }){
     const [q,setQ]=useState('');
-    const [type,setType]=useState('all'); // all | earn | spend
-    const [sort,setSort]=useState('latest'); // latest | oldest | max | min
+    const [type,setType]=useState('all');
+    const [sort,setSort]=useState('latest');
 
     const filtered = useMemo(()=>{
       let arr = ledger||[];
@@ -541,9 +581,13 @@
     const total = cart.reduce((s,c)=>s+(c.points||0)*(c.qty||1),0);
     const updateQty = (id,delta)=> setCart(cur=>cur.map(x=>x.id===id?{...x,qty:Math.max(1,(x.qty||1)+delta)}:x));
     const remove = id => setCart(cur=>cur.filter(x=>x.id!==id));
+    const [sending,setSending]=useState(false);
     const redeem = async()=>{
+      if (sending) return;
+      setSending(true);
       const note = cart.map(c=>`${c.name} x${c.qty}`).join(', ');
       const r = await apiRedeem(user.id, total, note);
+      setSending(false);
       if(!r.ok) return alert(r.message||'ตัดแต้มไม่สำเร็จ');
       alert('แลกสำเร็จ');
       onOK();
@@ -551,10 +595,17 @@
     };
     return (
       <div className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-30">
-        <div className="w-full max-w-2xl card">
+        <div className="w-full max-w-2xl card relative">
+          {sending && (
+            <div className="absolute inset-0 bg-white/70 rounded-2xl grid place-items-center z-10">
+              <div className="flex items-center gap-2 text-slate-700">
+                <span className="spinner"></span><span>กำลังทำรายการ...</span>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between border-b pb-2 mb-3">
             <div className="font-semibold">ตะกร้าแลกของ</div>
-            <button className="btn btn-ghost" onClick={onClose}>ปิด</button>
+            <button className="btn btn-ghost" disabled={sending} onClick={onClose}>ปิด</button>
           </div>
           {!cart.length ? <div className="text-center text-slate-500 py-8">ยังไม่มีสินค้า</div> :
             <ul className="space-y-3">
@@ -566,12 +617,12 @@
                     <div className="text-xs text-slate-500">{c.points} แต้ม/ชิ้น</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="btn btn-ghost" onClick={()=>updateQty(c.id,-1)}>-</button>
+                    <button className="btn btn-ghost" disabled={sending} onClick={()=>updateQty(c.id,-1)}>-</button>
                     <div className="chip">x{c.qty}</div>
-                    <button className="btn btn-ghost" onClick={()=>updateQty(c.id,1)}>+</button>
+                    <button className="btn btn-ghost" disabled={sending} onClick={()=>updateQty(c.id,1)}>+</button>
                   </div>
                   <div className="w-28 text-right font-semibold">{fmt.format((c.points||0)*(c.qty||1))} แต้ม</div>
-                  <button className="btn btn-danger" onClick={()=>remove(c.id)}>ลบ</button>
+                  <button className="btn btn-danger" disabled={sending} onClick={()=>remove(c.id)}>ลบ</button>
                 </li>
               ))}
             </ul>
@@ -584,7 +635,9 @@
             </div>
           </div>
           <div className="mt-3 text-right">
-            <button className="btn btn-primary" disabled={!cart.length || total>user.points} onClick={redeem}>ยืนยันแลก</button>
+            <button className="btn btn-primary disabled:opacity-50" disabled={!cart.length || total>user.points || sending} onClick={redeem}>
+              {sending ? <><span className="spinner spinner-white"></span> กำลังทำรายการ...</> : 'ยืนยันแลก'}
+            </button>
           </div>
         </div>
       </div>
@@ -603,7 +656,6 @@
     const [ledger,setLedger]=useState([]);
     const [cart,setCart]=useState([]), [openCart,setOpenCart]=useState(false);
 
-    // Auto-login by localStorage (คง session)
     useEffect(()=>{
       const saved = localStorage.getItem('hrd_user');
       if(saved){
@@ -614,7 +666,6 @@
       }
     },[]);
 
-    // โหลดข้อมูลหน้าหลักพร้อมกันให้ไวขึ้น
     const loadAppData = async(uid)=>{
       const res = await Promise.all([
         apiGetCatalog(), apiGetNewsRules(), apiGetTasks(), apiGetPoints(uid), apiGetLedger(uid)
