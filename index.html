@@ -72,7 +72,7 @@
 
   /* ==================== CONFIG / API ==================== */
   // ★★ เปลี่ยนเป็น URL /exec ของ Apps Script คุณ ★★
-  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyw6PSzkrjeax1VwZC4L34EXXposCg6CnWEjnF7BDfX6jEcqylphHAcz9qt2EhCmj0Q/exec';
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyarvEqwGM7N6sbygoGFNQse8SPfr-7KD9NatCtyKStnetTTZtrPtpqYCDC9fnwQLCC/exec';
 
   async function callApi(action, payload){
     const res = await fetch(WEBAPP_URL, { method:'POST', body: JSON.stringify({ action, payload }) });
