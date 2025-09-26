@@ -40,7 +40,6 @@
         radial-gradient(80% 120% at 90% 10%, rgba(245,158,11,.12) 0%, rgba(245,158,11,0) 60%),
         var(--bg);
     }
-    /* Mobile bottom bar */
     .mobile-tabbar{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--ring);
                     display:flex; justify-content:space-around; padding:.5rem .25rem; z-index:50; }
     .mobile-tabbar button{ flex:1; display:flex; flex-direction:column; align-items:center; font-size:.75rem; gap:.15rem; padding:.4rem .2rem; border-radius:.75rem; }
@@ -56,7 +55,7 @@
   const fmt = new Intl.NumberFormat('th-TH');
 
   /* ============ CONFIG / API ============ */
-  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyarvEqwGM7N6sbygoGFNQse8SPfr-7KD9NatCtyKStnetTTZtrPtpqYCDC9fnwQLCC/exec';
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzmdvAF7K8Yw0qRdtl1JCQqIptcJGp5j1XAmr2YyRIXHCpCG2h-F7qxgDMp8MhydI6s/exec';
 
   async function callApi(action, payload){
     const res = await fetch(WEBAPP_URL, { method:'POST', body: JSON.stringify({ action, payload }) });
@@ -354,15 +353,22 @@
     </div>
   );
 
-  const Tasks = ({ tasks, user, setTab })=>{
-    const [open,setOpen]=useState(null), [date,setDate]=useState(''), [img,setImg]=useState(null);
+  // ==== Tasks ====
+  const Tasks = ({ tasks, user, setTab, refresh })=>{
+    const [open,setOpen]=useState(null); // title
+    const [date,setDate]=useState(''), [img,setImg]=useState(null), [note,setNote]=useState('');
     const fileToBase64 = f => new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(f); });
+    const selected = tasks.find(t=>t.title===open);
+
     const submit = async()=>{
       if(!open||!date) return alert('กรุณาใส่วันที่');
       let b64=''; if(img) b64=await fileToBase64(img);
-      const r = await apiSubmitTask({ taskTitle:open, employeeId:user.id, date, imageBase64:b64 });
+      const r = await apiSubmitTask({ taskTitle:open, employeeId:user.id, date, imageBase64:b64, note });
       if(!r.ok) return alert(r.message||'ส่งภารกิจไม่สำเร็จ');
-      alert('ส่งภารกิจเรียบร้อย'); setOpen(null); setDate(''); setImg(null); setTab('home');
+      alert(`ส่งภารกิจเรียบร้อย ${selected?.points?`(+${selected.points} แต้ม)`:''}`);
+      setOpen(null); setDate(''); setImg(null); setNote('');
+      await refresh?.(); // อัปเดตแต้ม/ประวัติ
+      setTab('home');
     };
     return (
       <div className="space-y-4 pb-16">
@@ -372,7 +378,7 @@
             <ul className="grid sm:grid-cols-2 gap-2">
               {tasks.map((t,i)=>(
                 <li key={i} className="border rounded-xl p-3">
-                  <div className="font-medium">{t.title}</div>
+                  <div className="font-medium flex items-center gap-2">{t.title} {t.points ? <span className="chip">+{t.points} แต้ม</span> : null}</div>
                   <div className="text-sm text-slate-600">{t.detail}</div>
                   <button className="btn btn-primary mt-2" onClick={()=>setOpen(t.title)}>ส่งภารกิจนี้</button>
                 </li>
@@ -385,13 +391,14 @@
           <div className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-30">
             <div className="w-full max-w-lg card">
               <div className="flex items-center justify-between mb-2">
-                <div className="font-semibold">ส่งภารกิจ: {open}</div>
+                <div className="font-semibold">ส่งภารกิจ: {open} {selected?.points ? <span className="chip ml-2">+{selected.points} แต้ม</span> : null}</div>
                 <button className="btn btn-ghost" onClick={()=>setOpen(null)}>ปิด</button>
               </div>
               <div className="space-y-3">
                 <Field label="รหัสพนักงาน"><input className="input" value={user.id} disabled/></Field>
                 <Field label="วันที่"><input type="date" className="input" value={date} onChange={e=>setDate(e.target.value)}/></Field>
                 <Field label="อัปโหลดรูปหลักฐาน (ถ้ามี)"><input type="file" accept="image/*" onChange={e=>setImg(e.target.files?.[0]||null)} /></Field>
+                <Field label="รายละเอียดเพิ่มเติม (ถ้ามี)"><input className="input" value={note} onChange={e=>setNote(e.target.value)} placeholder="ระบุข้อความสั้น ๆ (ตัวเลือก)"/></Field>
                 <div className="text-right"><button className="btn btn-primary" onClick={submit}>ส่งข้อมูล</button></div>
               </div>
             </div>
@@ -645,7 +652,7 @@
         <main className="max-w-6xl mx-auto px-4 py-6">
           {tab==='home'    && <Home user={user} newsCount={news.length} tasksCount={tasks.length} catalogCount={catalog.length}/> }
           {tab==='catalog' && <Catalog user={user} items={catalog} cart={cart} setCart={setCart} openCart={()=>setOpenCart(true)}/> }
-          {tab==='tasks'   && <Tasks tasks={tasks} user={user} setTab={setTab}/> }
+          {tab==='tasks'   && <Tasks tasks={tasks} user={user} setTab={setTab} refresh={refreshLedger}/> }
           {tab==='news'    && <News news={news} rules={rules}/> }
           {tab==='history' && <History user={user} ledger={ledger} refresh={refreshLedger}/> }
           {tab==='me'      && (
