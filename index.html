@@ -1,16 +1,14 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>HRD Rewards - ระบบแต้มรางวัลพนักงาน</title>
-  <meta name="description" content="ระบบแต้มรางวัลสำหรับพนักงาน - สะสมแต้มและแลกของรางวัลจากบริษัท" />
+  <meta name="description" content="ระบบแต้มรางวัลสำหรับพนักงาน - สะสมแต้มและแลกของรางวัลจากบริษัท"/>
 
-  <!-- Fonts + Tailwind (CDN) -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- React 18 + Babel -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -18,49 +16,36 @@
   <style>
     :root{
       --brand:#4f46e5; --brand-700:#4338ca; --gold:#f59e0b;
-      --bg:#eef2f7; --text:#0f172a; --muted:#475569; --ring:#d0d7e2;
+      --bg:#f5f7fb; --ring:#e5e7eb; --text:#0f172a;
     }
     *{ font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, sans-serif; }
     html,body{ background:var(--bg); color:var(--text); }
-
-    .card{
-      background:#fff; border-radius:16px; padding:1.25rem;
-      box-shadow:0 2px 10px rgba(2,6,23,.06); border:1px solid var(--ring);
-    }
-    .card:hover{ box-shadow:0 8px 30px rgba(2,6,23,.12); }
-
-    .btn{
-      display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
-      padding:.65rem 1rem; border-radius:.9rem; font-weight:600; transition:.2s ease; cursor:pointer;
-      border:2px solid transparent; user-select:none;
-    }
+    .card{ background:#fff; border-radius:16px; padding:1rem; border:1px solid var(--ring);
+           box-shadow:0 2px 10px rgba(2,6,23,.05); }
+    .btn{ display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+          padding:.6rem 1rem; border-radius:.9rem; font-weight:600; border:2px solid transparent; }
     .btn-ghost{ background:#fff; border-color:var(--ring); }
     .btn-ghost:hover{ background:#f8fafc; }
     .btn-primary{ color:#fff; background:linear-gradient(135deg,var(--brand),#6b66ff); }
     .btn-primary:hover{ filter:brightness(.95); }
-    .btn-premium{ color:#fff; background:linear-gradient(135deg,var(--brand),var(--gold)); box-shadow:0 8px 30px rgba(79,70,229,.25); }
-    .btn-premium:hover{ transform:translateY(-1px); }
-    .btn-danger{ background:#ef4444; color:#fff; }
-    .btn-outline{ background:#fff; border-color:#bfdbfe; }
-    .chip{ display:inline-flex; align-items:center; gap:.25rem; padding:.25rem .5rem; border-radius:999px; font-size:.75rem; border:1px solid var(--ring); background:#f8fafc; color:#334155; }
-    .input{ width:100%; padding:.65rem .9rem; border-radius:.9rem; background:#fff; border:2px solid #e2e8f0; outline:none; transition:.15s ease; }
+    .btn-premium{ color:#fff; background:linear-gradient(135deg,var(--brand),var(--gold)); }
+    .btn-danger{ color:#fff; background:#ef4444; }
+    .chip{ display:inline-flex; align-items:center; gap:.25rem; padding:.25rem .5rem; border-radius:999px;
+           font-size:.75rem; border:1px solid var(--ring); background:#f8fafc; color:#334155; }
+    .input{ width:100%; padding:.65rem .9rem; border-radius:.9rem; background:#fff; border:2px solid #e2e8f0; outline:none; }
     .input:focus{ border-color:#93c5fd; box-shadow:0 0 0 4px rgba(59,130,246,.08); }
-
     .hero-bg{
       background:
         radial-gradient(80% 120% at 10% 0%, rgba(79,70,229,.10) 0%, rgba(79,70,229,0) 60%),
         radial-gradient(80% 120% at 90% 10%, rgba(245,158,11,.12) 0%, rgba(245,158,11,0) 60%),
         var(--bg);
     }
-
-    /* bottom nav (mobile) */
-    .mnav{ position:fixed; bottom:0; left:0; right:0; background:#ffffffd9; border-top:1px solid var(--ring); backdrop-filter:blur(8px); z-index:40; }
-    .mnav .btn{ padding:.5rem .75rem; border:0; }
-    .mnav .active{ color:#fff; background:linear-gradient(135deg,var(--brand),#6b66ff); }
-
-    /* catalog image */
-    .item-img{ width:56px; height:56px; border-radius:12px; object-fit:cover; background:#f1f5f9; display:block; }
-    .emoji{ font-size:2rem; line-height:56px; width:56px; height:56px; text-align:center; }
+    /* Mobile bottom bar */
+    .mobile-tabbar{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--ring);
+                    display:flex; justify-content:space-around; padding:.5rem .25rem; z-index:50; }
+    .mobile-tabbar button{ flex:1; display:flex; flex-direction:column; align-items:center; font-size:.75rem; gap:.15rem; padding:.4rem .2rem; border-radius:.75rem; }
+    .mobile-tabbar .active{ background:#eef2ff; color:#4338ca; }
+    @media (min-width:768px){ .mobile-tabbar{ display:none; } }
   </style>
 </head>
 <body>
@@ -70,8 +55,7 @@
   const {useState,useEffect,useMemo} = React;
   const fmt = new Intl.NumberFormat('th-TH');
 
-  /* ==================== CONFIG / API ==================== */
-  // ★★ เปลี่ยนเป็น URL /exec ของ Apps Script คุณ ★★
+  /* ============ CONFIG / API ============ */
   const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyarvEqwGM7N6sbygoGFNQse8SPfr-7KD9NatCtyKStnetTTZtrPtpqYCDC9fnwQLCC/exec';
 
   async function callApi(action, payload){
@@ -89,20 +73,22 @@
   const apiForgot       = (id,email)=> callApi('forgot', { employeeId:id, email });
   const apiChangePwd    = (p)=> callApi('changePassword', { employeeId:p.employeeId, username:p.username, currentPassword:p.oldPassword, newPassword:p.newPassword });
   const apiGetNewsRules = ()=> callApi('getNewsRules', {});
-  const apiGetTasks     = ()=> callApi('getTasks', {});              // A:Title B:Detail C:Points
-  const apiSubmitTask   = (pl)=> callApi('submitTask', pl);          // { taskTitle, employeeId, date, imageBase64, note }
+  const apiGetTasks     = ()=> callApi('getTasks', {});
+  const apiSubmitTask   = (pl)=> callApi('submitTask', pl);
   const apiGetCatalog   = ()=> callApi('getCatalog', {});
+  const apiGetLedger    = (id)=> callApi('getLedger', { employeeId:id });
 
-  /* ==================== Utils & Small UI ==================== */
-  const fileToBase64 = f => new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(f); });
+  // Admin
+  const apiA_UpsertItem = (admin,p)=> callApi('adminUpsertItem', {...p, admin});
+  const apiA_DeleteItem = (admin,id)=> callApi('adminDeleteItem', { admin, id });
 
+  /* ============ Utils/UI ============ */
   const Field = ({label,children})=>(
     <div>
       <label className="text-xs text-slate-600">{label}</label>
       <div className="mt-1">{children}</div>
     </div>
   );
-
   function PasswordInput({ value, onChange, placeholder="รหัสผ่าน"}){
     const [show,setShow]=useState(false);
     return (
@@ -114,28 +100,23 @@
       </div>
     );
   }
-
-  const ImgOrEmoji = ({src,alt})=>{
-    const isUrl = typeof src==='string' && /^(https?:|data:|gs:)/i.test(src);
-    if(isUrl) return <img className="item-img" src={src} alt={alt||''} onError={(e)=>{e.currentTarget.replaceWith(document.createTextNode('🎁'));}}/>;
-    return <div className="emoji">{src||'🎁'}</div>;
+  const EmojiOrImg = ({src, alt=""})=>{
+    const isUrl = /^https?:\/\//i.test(src||'');
+    return isUrl ? <img src={src} alt={alt} className="h-14 w-14 object-cover rounded-lg"/> : <div className="text-4xl">{src||'🎁'}</div>;
   };
 
-  /* ==================== AUTH PAGES ==================== */
+  /* ============ AUTH ============ */
   function Login({ onOK, openRegister, openForgot, openChangePwd }){
     const [u,setU]=useState(''), [p,setP]=useState(''), [err,setErr]=useState(''), [busy,setBusy]=useState(false);
     const submit = async(e)=>{
       e.preventDefault(); setErr(''); setBusy(true);
       const r = await apiLogin(u.trim(), p.trim());
       if(!r.ok) setErr(r.message||'เข้าสู่ระบบไม่สำเร็จ');
-      else onOK(r.user);
+      else { onOK(r.user); localStorage.setItem('hrd_user', JSON.stringify(r.user)); }
       setBusy(false);
     };
     return (
-      <div className="min-h-screen hero-bg grid place-items-center px-4 relative overflow-hidden">
-        <div className="absolute -top-32 -right-32 w-72 h-72 rounded-full bg-indigo-300/30 blur-3xl"></div>
-        <div className="absolute -bottom-32 -left-32 w-72 h-72 rounded-full bg-amber-300/30 blur-3xl"></div>
-
+      <div className="min-h-screen hero-bg grid place-items-center px-4">
         <form onSubmit={submit} className="w-full max-w-md card p-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-amber-500 grid place-items-center text-white text-xl shadow-lg">🏆</div>
@@ -181,7 +162,6 @@
             <div className="font-semibold">สมัครสมาชิก</div>
             <button className="text-sm underline" onClick={back}>กลับหน้าเข้าสู่ระบบ</button>
           </div>
-
           {step===1?(
             <div className="space-y-3">
               <Field label="รหัสพนักงาน *"><input className="input" value={f.employeeId} onChange={e=>setF({...f,employeeId:e.target.value})}/></Field>
@@ -218,7 +198,6 @@
       </div>
     );
   }
-
   const Forgot = ({ back })=>{
     const [emp,setEmp]=useState(''), [email,setEmail]=useState(''), [err,setErr]=useState('');
     const submit = async()=>{
@@ -241,7 +220,6 @@
       </div>
     );
   };
-
   const ChangePassword = ({ back })=>{
     const [f,setF]=useState({ employeeId:'', username:'', oldPassword:'', newPassword:'', newPassword2:'' });
     const [err,setErr]=useState('');
@@ -271,56 +249,59 @@
     );
   };
 
-  /* ==================== APP SECTIONS ==================== */
-  const Header = ({ user, tab, setTab, onLogout, cartCount })=>{
+  /* ============ APP SECTIONS ============ */
+  const Header = ({ user, tab, setTab, onLogout, cartCount })=>(
+    <header className="bg-white/90 backdrop-blur border-b sticky top-0 z-20">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-amber-500 grid place-items-center text-white">★</div>
+          <div className="leading-tight hidden sm:block">
+            <div className="font-semibold">ระบบแต้มรางวัล</div>
+            <div className="text-xs text-slate-500">Premium Rewards</div>
+          </div>
+        </div>
+        <nav className="hidden md:flex items-center gap-2">
+          {[
+            ['home','หน้าแรก'],['catalog','แลกของ'],['tasks','ภารกิจ'],['news','ประกาศ/กติกา'],['history','ประวัติ'],['me','คะแนนของฉัน'],
+            ...(user?.role?.toLowerCase()==='admin' ? [['admin','Admin']] : []),
+          ].map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)} className={"btn "+(tab===id?'btn-premium':'btn-ghost')}>{label}</button>
+          ))}
+        </nav>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:block text-right">
+            <div className="text-sm font-medium">{user?.name||'-'}</div>
+            <div className="text-xs text-slate-500">{user?.id||''}</div>
+          </div>
+          {!!cartCount && <div className="chip">🛒 {cartCount}</div>}
+          <button className="btn btn-ghost" onClick={onLogout}>ออกจากระบบ</button>
+        </div>
+      </div>
+    </header>
+  );
+
+  const MobileTabBar = ({tab,setTab})=>{
     const tabs = [
-      ['home','หน้าแรก'],['catalog','แลกของ'],['tasks','ภารกิจ'],['news','ประกาศ/กติกา'],['me','คะแนนของฉัน'],
-      ...(user?.role?.toLowerCase()==='admin' ? [['admin','Admin']] : []),
+      ['home','หน้าแรก','🏠'],
+      ['catalog','แลกของ','🛍️'],
+      ['tasks','ภารกิจ','🧩'],
+      ['news','ประกาศ','📢'],
+      ['history','ประวัติ','📑'],
+      ['me','ฉัน','👤'],
     ];
     return (
-      <header className="bg-white/90 backdrop-blur border-b sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-amber-500 grid place-items-center text-white">★</div>
-            <div className="leading-tight">
-              <div className="font-semibold">ระบบแต้มรางวัล</div>
-              <div className="text-xs text-slate-500">Premium Rewards</div>
-            </div>
-          </div>
-          {/* desktop nav */}
-          <nav className="hidden md:flex items-center gap-2">
-            {tabs.map(([id,label])=>(
-              <button key={id} onClick={()=>setTab(id)} className={"btn "+(tab===id?'btn-premium':'btn-ghost')}>{label}</button>
-            ))}
-          </nav>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block text-right">
-              <div className="text-sm font-medium">{user?.name||'-'}</div>
-              <div className="text-xs text-slate-500">{user?.id||''}</div>
-            </div>
-            {!!cartCount && <div className="chip">🛒 {cartCount}</div>}
-            <button className="btn btn-outline" onClick={onLogout}>ออกจากระบบ</button>
-          </div>
-        </div>
-        {/* mobile scroll nav */}
-        <div className="md:hidden overflow-x-auto px-3 pb-3 -mt-1">
-          <div className="flex gap-2 w-max">
-            {[
-              ['home','หน้าแรก','🏠'],['catalog','แลกของ','🛍️'],['tasks','ภารกิจ','📝'],['news','ประกาศ','📢'],['me','ฉัน','🙂'],
-              ...(user?.role?.toLowerCase()==='admin' ? [['admin','Admin','🛠️']] : []),
-            ].map(([id,label,ico])=>(
-              <button key={id} onClick={()=>setTab(id)} className={"btn "+(tab===id?'btn-premium':'btn-ghost')}>
-                <span className="mr-1">{ico}</span>{label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
+      <div className="mobile-tabbar">
+        {tabs.map(([id,label,icon])=>(
+          <button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}>
+            <div>{icon}</div><div>{label}</div>
+          </button>
+        ))}
+      </div>
     );
   };
 
   const Home = ({ user, newsCount, tasksCount, catalogCount })=>(
-    <div className="space-y-4">
+    <div className="space-y-4 pb-16">
       <div className="card">
         <div className="flex items-center justify-between">
           <div>
@@ -334,7 +315,6 @@
           </div>
         </div>
       </div>
-
       <div className="grid sm:grid-cols-3 gap-3">
         <div className="card"><div className="text-sm text-slate-600">EXP สะสม</div><div className="text-3xl font-bold mt-1">{fmt.format(Math.max(0,user.tierPoints||0))}</div></div>
         <div className="card"><div className="text-sm text-slate-600">ภารกิจเปิดรับ</div><div className="text-3xl font-bold mt-1">{tasksCount}</div></div>
@@ -344,7 +324,7 @@
   );
 
   const Catalog = ({ user, items, cart, setCart, openCart })=>(
-    <div className="space-y-4">
+    <div className="space-y-4 pb-16">
       <div className="card flex items-center justify-between">
         <div>คะแนนคุณ: <b className="text-slate-900">{fmt.format(user.points)} แต้ม</b></div>
         <button className="btn btn-primary" onClick={openCart}>🛒 ตะกร้า {cart.reduce((s,c)=>s+c.qty,0)||''}</button>
@@ -353,7 +333,7 @@
         {items.map(r=>(
           <div key={r.id} className="card flex flex-col">
             <div className="flex items-center gap-3">
-              <ImgOrEmoji src={r.image || r.img || '🎁'} alt={r.name}/>
+              <EmojiOrImg src={r.image||r.img||''} alt={r.name}/>
               <div className="flex-1">
                 <div className="font-medium">{r.name}</div>
                 <div className="text-xs text-slate-500 mt-1 flex gap-2 flex-wrap">
@@ -374,21 +354,18 @@
     </div>
   );
 
-  // ภารกิจ: แสดงคะแนนจาก Sheet6 C และส่งแล้วเพิ่มลง sheet7
-  const Tasks = ({ tasks, user, setTab, refreshUserPoints })=>{
-    const [sel,setSel]=useState(null), [date,setDate]=useState(''), [img,setImg]=useState(null), [note,setNote]=useState('');
+  const Tasks = ({ tasks, user, setTab })=>{
+    const [open,setOpen]=useState(null), [date,setDate]=useState(''), [img,setImg]=useState(null);
+    const fileToBase64 = f => new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(f); });
     const submit = async()=>{
-      if(!sel||!date) return alert('กรุณาใส่วันที่');
+      if(!open||!date) return alert('กรุณาใส่วันที่');
       let b64=''; if(img) b64=await fileToBase64(img);
-      const r = await apiSubmitTask({ taskTitle:sel.title, employeeId:user.id, date, imageBase64:b64, note });
+      const r = await apiSubmitTask({ taskTitle:open, employeeId:user.id, date, imageBase64:b64 });
       if(!r.ok) return alert(r.message||'ส่งภารกิจไม่สำเร็จ');
-      alert(`ส่งภารกิจเรียบร้อย ${r.pointsAwarded?`(+${r.pointsAwarded} แต้ม)`:''}`);
-      setSel(null); setDate(''); setImg(null); setNote('');
-      await refreshUserPoints();
-      setTab('home');
+      alert('ส่งภารกิจเรียบร้อย'); setOpen(null); setDate(''); setImg(null); setTab('home');
     };
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 pb-16">
         <div className="card">
           <div className="font-semibold mb-2">ภารกิจที่เปิดรับ</div>
           {!tasks.length ? <div className="text-sm text-slate-500">ยังไม่มีภารกิจ</div> :
@@ -397,26 +374,23 @@
                 <li key={i} className="border rounded-xl p-3">
                   <div className="font-medium">{t.title}</div>
                   <div className="text-sm text-slate-600">{t.detail}</div>
-                  <div className="mt-1"><span className="chip">+{t.points||0} แต้ม</span></div>
-                  <button className="btn btn-primary mt-2" onClick={()=>setSel(t)}>ส่งภารกิจนี้</button>
+                  <button className="btn btn-primary mt-2" onClick={()=>setOpen(t.title)}>ส่งภารกิจนี้</button>
                 </li>
               ))}
             </ul>
           }
         </div>
 
-        {sel && (
+        {open && (
           <div className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-30">
             <div className="w-full max-w-lg card">
               <div className="flex items-center justify-between mb-2">
-                <div className="font-semibold">ส่งภารกิจ: {sel.title}</div>
-                <button className="btn btn-ghost" onClick={()=>setSel(null)}>ปิด</button>
+                <div className="font-semibold">ส่งภารกิจ: {open}</div>
+                <button className="btn btn-ghost" onClick={()=>setOpen(null)}>ปิด</button>
               </div>
               <div className="space-y-3">
-                <div className="chip">จะได้รับ +{sel.points||0} แต้ม</div>
                 <Field label="รหัสพนักงาน"><input className="input" value={user.id} disabled/></Field>
                 <Field label="วันที่"><input type="date" className="input" value={date} onChange={e=>setDate(e.target.value)}/></Field>
-                <Field label="หมายเหตุ (ใส่หรือไม่ใส่ก็ได้)"><input className="input" value={note} onChange={e=>setNote(e.target.value)} placeholder="ตัวอย่าง: ส่งเอกสารครบ" /></Field>
                 <Field label="อัปโหลดรูปหลักฐาน (ถ้ามี)"><input type="file" accept="image/*" onChange={e=>setImg(e.target.files?.[0]||null)} /></Field>
                 <div className="text-right"><button className="btn btn-primary" onClick={submit}>ส่งข้อมูล</button></div>
               </div>
@@ -428,7 +402,7 @@
   };
 
   const News = ({ news, rules })=>(
-    <div className="space-y-4">
+    <div className="space-y-4 pb-16">
       <div className="card">
         <div className="font-semibold mb-2">ประกาศล่าสุด</div>
         {!news.length ? <div className="text-sm text-slate-500">ไม่มีประกาศ</div> :
@@ -437,14 +411,13 @@
               <li key={i} className="border rounded-xl p-3">
                 <div className="font-semibold">{n.title}</div>
                 <div className="text-sm text-slate-600">{n.content}</div>
-                {!!n.image && <img src={n.image} className="mt-2 rounded-lg max-h-40 object-cover" onError={(e)=>e.currentTarget.remove()} />}
+                {!!n.image && /^https?:\/\//.test(n.image) && <img src={n.image} className="mt-2 rounded-lg max-h-40 object-cover" />}
                 <div className="text-xs text-slate-400 mt-1">{n.createdAt||''}</div>
               </li>
             ))}
           </ul>
         }
       </div>
-
       <div className="card">
         <div className="font-semibold mb-2">กติกาการใช้แต้มรางวัล</div>
         {!rules.length ? <div className="text-sm text-slate-500">ไม่มีข้อมูล</div> :
@@ -461,26 +434,267 @@
     </div>
   );
 
-  // Admin: คงไว้เฉพาะจัดการ Catalog (ที่รองรับใน backend)
-  const Admin = ({ catalog, setCatalog })=>{
+  // === History ===
+  function History({ user, ledger, refresh }){
+    const [q,setQ]=useState('');
+    const [type,setType]=useState('all'); // all | earn | spend
+    const [sort,setSort]=useState('latest'); // latest | oldest | max | min
+
+    const filtered = useMemo(()=>{
+      let arr = ledger||[];
+      if(q.trim()){
+        const s = q.trim().toLowerCase();
+        arr = arr.filter(x => (x.detail||'').toLowerCase().includes(s));
+      }
+      if(type==='earn')  arr = arr.filter(x=>x.delta>0);
+      if(type==='spend') arr = arr.filter(x=>x.delta<0);
+      const byNum = (a,b)=>Math.abs(b.delta)-Math.abs(a.delta);
+      const byTime = (a,b)=> (new Date(b.dateText||0))-(new Date(a.dateText||0));
+      const byTimeAsc = (a,b)=> (new Date(a.dateText||0))-(new Date(b.dateText||0));
+      if(sort==='latest') arr = [...arr].sort(byTime);
+      if(sort==='oldest') arr = [...arr].sort(byTimeAsc);
+      if(sort==='max')    arr = [...arr].sort(byNum);
+      if(sort==='min')    arr = [...arr].sort((a,b)=>Math.abs(a.delta)-Math.abs(b.delta));
+      return arr;
+    }, [ledger,q,type,sort]);
+
+    const earned = (ledger||[]).filter(x=>x.delta>0).reduce((s,x)=>s+x.delta,0);
+    const spent  = (ledger||[]).filter(x=>x.delta<0).reduce((s,x)=>s+Math.abs(x.delta),0);
+    const monthCount = (ledger||[]).filter(x=>{
+      const d=new Date(x.dateText||''); const n=new Date();
+      return d.getMonth()===n.getMonth() && d.getFullYear()===n.getFullYear();
+    }).length;
+
+    return (
+      <div className="space-y-4 pb-20">
+        <div className="grid sm:grid-cols-4 gap-3">
+          <div className="card">
+            <div className="text-slate-500 text-sm">แต้มที่ได้รับ</div>
+            <div className="text-3xl font-bold text-emerald-600 mt-1">+{fmt.format(earned)}</div>
+          </div>
+          <div className="card">
+            <div className="text-slate-500 text-sm">แต้มที่ใช้</div>
+            <div className="text-3xl font-bold text-orange-600 mt-1">-{fmt.format(spent)}</div>
+          </div>
+          <div className="card">
+            <div className="text-slate-500 text-sm">รอดำเนินการ</div>
+            <div className="text-3xl font-bold mt-1">0</div>
+          </div>
+          <div className="card">
+            <div className="text-slate-500 text-sm">กิจกรรมเดือนนี้</div>
+            <div className="text-3xl font-bold mt-1">{monthCount}</div>
+          </div>
+        </div>
+
+        <div className="card flex flex-col md:flex-row md:items-center gap-2">
+          <div className="flex-1">
+            <input className="input" placeholder="ค้นหาในประวัติ..." value={q} onChange={e=>setQ(e.target.value)}/>
+          </div>
+          <select className="input md:w-40" value={type} onChange={e=>setType(e.target.value)}>
+            <option value="all">ทุกประเภท</option>
+            <option value="earn">รับแต้ม</option>
+            <option value="spend">ใช้แต้ม</option>
+          </select>
+          <select className="input md:w-48" value={sort} onChange={e=>setSort(e.target.value)}>
+            <option value="latest">วันที่ล่าสุด</option>
+            <option value="oldest">วันที่เก่าสุด</option>
+            <option value="max">แต้มมากสุด</option>
+            <option value="min">แต้มน้อยสุด</option>
+          </select>
+          <button className="btn btn-ghost md:ml-2" onClick={refresh}>รีเฟรช</button>
+        </div>
+
+        <div className="card">
+          <div className="font-semibold mb-2">ประวัติทั้งหมด ({filtered.length} รายการ)</div>
+          {!filtered.length ? <div className="text-slate-500 text-sm">ยังไม่มีประวัติ</div> :
+            <ul className="divide-y">
+              {filtered.map((x,i)=>(
+                <li key={i} className="py-3 flex items-center gap-3">
+                  <div className="text-2xl">{x.delta>0?'🌟':'🎁'}</div>
+                  <div className="flex-1">
+                    <div className="text-sm text-slate-500">{x.dateText||'-'}</div>
+                    <div className="font-medium">{x.detail|| (x.delta>0?'ได้รับแต้ม':'ใช้แต้ม')}</div>
+                  </div>
+                  <div className={"font-bold "+(x.delta>0?'text-emerald-600':'text-orange-600')}>
+                    {x.delta>0?`+${fmt.format(x.delta)}`:`-${fmt.format(Math.abs(x.delta))}`}
+                  </div>
+                  <div className="ml-3 text-emerald-600 text-sm flex items-center gap-1">✓ <span>สำเร็จ</span></div>
+                </li>
+              ))}
+            </ul>
+          }
+        </div>
+      </div>
+    );
+  }
+
+  // ตะกร้า
+  const CartModal = ({ open, cart, setCart, user, onClose, onOK })=>{
+    if(!open) return null;
+    const total = cart.reduce((s,c)=>s+(c.points||0)*(c.qty||1),0);
+    const updateQty = (id,delta)=> setCart(cur=>cur.map(x=>x.id===id?{...x,qty:Math.max(1,(x.qty||1)+delta)}:x));
+    const remove = id => setCart(cur=>cur.filter(x=>x.id!==id));
+    const redeem = async()=>{
+      const note = cart.map(c=>`${c.name} x${c.qty}`).join(', ');
+      const r = await apiRedeem(user.id, total, note);
+      if(!r.ok) return alert(r.message||'ตัดแต้มไม่สำเร็จ');
+      alert('แลกสำเร็จ');
+      onOK();
+      onClose();
+    };
+    return (
+      <div className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-30">
+        <div className="w-full max-w-2xl card">
+          <div className="flex items-center justify-between border-b pb-2 mb-3">
+            <div className="font-semibold">ตะกร้าแลกของ</div>
+            <button className="btn btn-ghost" onClick={onClose}>ปิด</button>
+          </div>
+          {!cart.length ? <div className="text-center text-slate-500 py-8">ยังไม่มีสินค้า</div> :
+            <ul className="space-y-3">
+              {cart.map(c=>(
+                <li key={c.id} className="flex items-center gap-3 border rounded-xl p-3">
+                  <EmojiOrImg src={c.image||c.img||''} alt={c.name}/>
+                  <div className="flex-1">
+                    <div className="font-medium">{c.name}</div>
+                    <div className="text-xs text-slate-500">{c.points} แต้ม/ชิ้น</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="btn btn-ghost" onClick={()=>updateQty(c.id,-1)}>-</button>
+                    <div className="chip">x{c.qty}</div>
+                    <button className="btn btn-ghost" onClick={()=>updateQty(c.id,1)}>+</button>
+                  </div>
+                  <div className="w-28 text-right font-semibold">{fmt.format((c.points||0)*(c.qty||1))} แต้ม</div>
+                  <button className="btn btn-danger" onClick={()=>remove(c.id)}>ลบ</button>
+                </li>
+              ))}
+            </ul>
+          }
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-slate-600">คะแนนคุณ: <b>{fmt.format(user.points)} แต้ม</b></div>
+            <div className="text-right">
+              <div className="text-sm">รวมใช้แต้ม</div>
+              <div className="text-xl font-bold">{fmt.format(total)} แต้ม</div>
+            </div>
+          </div>
+          <div className="mt-3 text-right">
+            <button className="btn btn-primary" disabled={!cart.length || total>user.points} onClick={redeem}>ยืนยันแลก</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ============ ROOT APP ============ */
+  function App(){
+    const [mode,setMode]=useState('login'); // login | register | forgot | change | app
+    const [user,setUser]=useState(null);
+    const [tab,setTab]=useState('home');
+
+    const [catalog,setCatalog]=useState([]);
+    const [news,setNews]=useState([]), [rules,setRules]=useState([]);
+    const [tasks,setTasks]=useState([]);
+    const [ledger,setLedger]=useState([]);
+    const [cart,setCart]=useState([]), [openCart,setOpenCart]=useState(false);
+
+    // Auto-login by localStorage (คง session)
+    useEffect(()=>{
+      const saved = localStorage.getItem('hrd_user');
+      if(saved){
+        try{
+          const u = JSON.parse(saved);
+          setUser(u); setMode('app');
+        }catch(_){}
+      }
+    },[]);
+
+    // โหลดข้อมูลหน้าหลักพร้อมกันให้ไวขึ้น
+    const loadAppData = async(uid)=>{
+      const res = await Promise.all([
+        apiGetCatalog(), apiGetNewsRules(), apiGetTasks(), apiGetPoints(uid), apiGetLedger(uid)
+      ]);
+      const [cg,nr,tk,pt,lg] = res;
+      if(cg.ok) setCatalog(cg.items||[]);
+      if(nr.ok){ setNews(nr.news||[]); setRules(nr.rules||[]); }
+      if(tk.ok) setTasks(tk.tasks||[]);
+      if(pt.ok) setUser(u=>u?({...u,points:pt.points,tierPoints:pt.points}):u);
+      if(lg.ok) setLedger(lg.items||[]);
+    };
+
+    useEffect(()=>{
+      if(mode!=='app' || !user?.id) return;
+      loadAppData(user.id);
+    }, [mode, user?.id]);
+
+    const refreshLedger = async()=>{
+      if(!user?.id) return;
+      const [pt,lg] = await Promise.all([apiGetPoints(user.id), apiGetLedger(user.id)]);
+      if(pt.ok) setUser(u=>({...u,points:pt.points,tierPoints:pt.points}));
+      if(lg.ok) setLedger(lg.items||[]);
+    };
+
+    if(mode==='login')    return <Login onOK={u=>{setUser(u); setMode('app'); setTab('home');}} openRegister={()=>setMode('register')} openForgot={()=>setMode('forgot')} openChangePwd={()=>setMode('change')} />;
+    if(mode==='register') return <Register back={()=>setMode('login')} />;
+    if(mode==='forgot')   return <Forgot back={()=>setMode('login')} />;
+    if(mode==='change')   return <ChangePassword back={()=>setMode('login')} />;
+
+    const cartCount = cart.reduce((s,c)=>s+c.qty,0);
+
+    return (
+      <div>
+        <Header user={user} tab={tab} setTab={setTab} onLogout={()=>{ setMode('login'); setUser(null); setCart([]); localStorage.removeItem('hrd_user'); }} cartCount={cartCount}/>
+        <main className="max-w-6xl mx-auto px-4 py-6">
+          {tab==='home'    && <Home user={user} newsCount={news.length} tasksCount={tasks.length} catalogCount={catalog.length}/> }
+          {tab==='catalog' && <Catalog user={user} items={catalog} cart={cart} setCart={setCart} openCart={()=>setOpenCart(true)}/> }
+          {tab==='tasks'   && <Tasks tasks={tasks} user={user} setTab={setTab}/> }
+          {tab==='news'    && <News news={news} rules={rules}/> }
+          {tab==='history' && <History user={user} ledger={ledger} refresh={refreshLedger}/> }
+          {tab==='me'      && (
+            <div className="space-y-4 pb-16">
+              <div className="card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-slate-500">พนักงาน</div>
+                    <div className="text-xl font-semibold">{user.name} • {user.id}</div>
+                    <div className="text-sm text-slate-500">สาขา: {user.branch||'-'} • ตำแหน่ง: {user.role}</div>
+                  </div>
+                  <div className="chip">คะแนน {fmt.format(user.points)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+          {tab==='admin'   && (user?.role?.toLowerCase()==='admin'
+            ? <Admin catalog={catalog} setCatalog={setCatalog} news={news} setNews={setNews} rules={rules} setRules={setRules} tasks={tasks} setTasks={setTasks}/>
+            : <div className="card">ไม่อนุญาต</div>)}
+        </main>
+
+        <MobileTabBar tab={tab} setTab={setTab}/>
+        <CartModal open={openCart} cart={cart} setCart={setCart} user={user}
+          onClose={()=>setOpenCart(false)}
+          onOK={refreshLedger}/>
+      </div>
+    );
+  }
+
+  // แผงแอดมิน (ของแลกเท่านั้น — ส่วนอื่นคงเดิม)
+  function Admin({ catalog, setCatalog }) {
     const [cred,setCred]=useState({ username:'admin1959', password:'1959' });
     const [item,setItem]=useState({ id:'', name:'', points:0, stock:0, image:'🎁' });
     const EMOJIS = ['🎁','☕','👕','🎧','🎒','🍫','🍽️','⌚','🥤','🧴','🧢','📱','💡','🧳','🎟️'];
 
     const saveItem = async()=>{
-      const r = await callApi('adminUpsertItem', { admin:cred, ...item });
+      const r = await apiA_UpsertItem(cred, item);
       if(!r.ok) return alert(r.message||'บันทึกไม่สำเร็จ');
       alert('บันทึกแล้ว'); setItem({ id:'', name:'', points:0, stock:0, image:'🎁' });
       const g = await apiGetCatalog(); if(g.ok) setCatalog(g.items||[]);
     };
     const delItem = async(id)=>{
       if(!confirm('ลบสินค้านี้?')) return;
-      const r = await callApi('adminDeleteItem', { admin:cred, id }); if(!r.ok) return alert(r.message||'ลบไม่สำเร็จ');
+      const r = await apiA_DeleteItem(cred, id); if(!r.ok) return alert(r.message||'ลบไม่สำเร็จ');
       const g = await apiGetCatalog(); if(g.ok) setCatalog(g.items||[]);
     };
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 pb-16">
         <div className="card">
           <div className="font-semibold mb-2">สิทธิ์แอดมิน</div>
           <div className="grid sm:grid-cols-2 gap-2">
@@ -516,11 +730,7 @@
                 {catalog.map(it=>(
                   <tr key={it.id} className="border-t">
                     <td className="p-2">{it.id}</td>
-                    <td className="p-2">
-                      <span className="inline-flex items-center gap-2">
-                        <ImgOrEmoji src={it.image||'🎁'} /> <span>{it.name}</span>
-                      </span>
-                    </td>
+                    <td className="p-2">{/^https?:\/\//.test(it.image||'')?<img src={it.image} className="inline h-6 w-6 object-cover rounded mr-1"/>:(it.image||'🎁')} {it.name}</td>
                     <td className="p-2">{it.points}</td>
                     <td className="p-2">{it.stock||'-'}</td>
                     <td className="p-2 text-right">
@@ -534,163 +744,6 @@
             </table>
           </div>
         </div>
-      </div>
-    );
-  };
-
-  // ตะกร้า
-  const CartModal = ({ open, cart, setCart, user, onClose, onOK })=>{
-    if(!open) return null;
-    const total = cart.reduce((s,c)=>s+(c.points||0)*(c.qty||1),0);
-    const updateQty = (id,delta)=> setCart(cur=>cur.map(x=>x.id===id?{...x,qty:Math.max(1,(x.qty||1)+delta)}:x));
-    const remove = id => setCart(cur=>cur.filter(x=>x.id!==id));
-    const redeem = async()=>{
-      const note = cart.map(c=>`${c.name} x${c.qty}`).join(', ');
-      const r = await apiRedeem(user.id, total, note);
-      if(!r.ok) return alert(r.message||'ตัดแต้มไม่สำเร็จ');
-      alert('แลกสำเร็จ'); onOK(); onClose();
-    };
-    return (
-      <div className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-30">
-        <div className="w-full max-w-2xl card">
-          <div className="flex items-center justify-between border-b pb-2 mb-3">
-            <div className="font-semibold">ตะกร้าแลกของ</div>
-            <button className="btn btn-ghost" onClick={onClose}>ปิด</button>
-          </div>
-          {!cart.length ? <div className="text-center text-slate-500 py-8">ยังไม่มีสินค้า</div> :
-            <ul className="space-y-3">
-              {cart.map(c=>(
-                <li key={c.id} className="flex items-center gap-3 border rounded-xl p-3">
-                  <ImgOrEmoji src={c.image||c.img||'🎁'} alt={c.name}/>
-                  <div className="flex-1">
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-xs text-slate-500">{c.points} แต้ม/ชิ้น</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="btn btn-ghost" onClick={()=>updateQty(c.id,-1)}>-</button>
-                    <div className="chip">x{c.qty}</div>
-                    <button className="btn btn-ghost" onClick={()=>updateQty(c.id,1)}>+</button>
-                  </div>
-                  <div className="w-28 text-right font-semibold">{fmt.format((c.points||0)*(c.qty||1))} แต้ม</div>
-                  <button className="btn btn-danger" onClick={()=>remove(c.id)}>ลบ</button>
-                </li>
-              ))}
-            </ul>
-          }
-          <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-slate-600">คะแนนคุณ: <b>{fmt.format(user.points)} แต้ม</b></div>
-            <div className="text-right">
-              <div className="text-sm">รวมใช้แต้ม</div>
-              <div className="text-xl font-bold">{fmt.format(total)} แต้ม</div>
-            </div>
-          </div>
-          <div className="mt-3 text-right">
-            <button className="btn btn-primary" disabled={!cart.length || total>user.points} onClick={redeem}>ยืนยันแลก</button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  /* ==================== ROOT APP ==================== */
-  function App(){
-    const [mode,setMode]=useState('login');   // login | register | forgot | change | app
-    const [user,setUser]=useState(null);
-    const [tab,setTab]=useState('home');
-    const [catalog,setCatalog]=useState([]);
-    const [news,setNews]=useState([]), [rules,setRules]=useState([]);
-    const [tasks,setTasks]=useState([]);
-    const [cart,setCart]=useState([]), [openCart,setOpenCart]=useState(false);
-
-    // ---- persist login (คงสถานะเมื่อรีหน้า) ----
-    useEffect(()=>{
-      try{
-        const raw = localStorage.getItem('hrd_user');
-        const t = localStorage.getItem('hrd_tab') || 'home';
-        if(raw){
-          const u = JSON.parse(raw);
-          setUser(u); setMode('app'); setTab(t);
-        }
-      }catch(_){}
-    }, []);
-    useEffect(()=>{ if(user) localStorage.setItem('hrd_user', JSON.stringify(user)); }, [user]);
-    useEffect(()=>{ if(mode==='app') localStorage.setItem('hrd_tab', tab); }, [mode,tab]);
-
-    const refreshUserPoints = async()=>{
-      const r = await apiGetPoints(user.id);
-      if(r.ok) setUser(u=>({...u, points:r.points, tierPoints:r.points}));
-    };
-
-    // โหลดข้อมูลหลังเข้าสู่โหมด app (เร่งความเร็ว: โหลดพร้อมกัน)
-    useEffect(()=>{
-      if(mode!=='app') return;
-      (async()=>{
-        const [c, nr, t] = await Promise.all([apiGetCatalog(), apiGetNewsRules(), apiGetTasks()]);
-        if(c.ok) setCatalog(c.items||[]);
-        if(nr.ok){ setNews(nr.news||[]); setRules(nr.rules||[]); }
-        if(t.ok) setTasks(t.tasks||[]);
-        if(user){ await refreshUserPoints(); }
-      })();
-    }, [mode]);
-
-    // bottom nav (mobile)
-    const mTabs = useMemo(()=>[
-      {id:'home',label:'หน้าแรก',ico:'🏠'},
-      {id:'catalog',label:'แลกของ',ico:'🛍️'},
-      {id:'tasks',label:'ภารกิจ',ico:'📝'},
-      {id:'news',label:'ประกาศ',ico:'📢'},
-      {id:'me',label:'ฉัน',ico:'🙂'}
-    ], []);
-
-    if(mode==='login')    return <Login onOK={u=>{setUser(u); setMode('app'); setTab('home');}} openRegister={()=>setMode('register')} openForgot={()=>setMode('forgot')} openChangePwd={()=>setMode('change')} />;
-    if(mode==='register') return <Register back={()=>setMode('login')} />;
-    if(mode==='forgot')   return <Forgot back={()=>setMode('login')} />;
-    if(mode==='change')   return <ChangePassword back={()=>setMode('login')} />;
-
-    const cartCount = cart.reduce((s,c)=>s+c.qty,0);
-
-    return (
-      <div className="pb-20 md:pb-0">
-        <Header user={user} tab={tab} setTab={setTab} onLogout={()=>{ setMode('login'); setUser(null); setCart([]); localStorage.removeItem('hrd_user'); }} cartCount={cartCount}/>
-        <main className="max-w-6xl mx-auto px-4 py-6">
-          {tab==='home'   && <Home user={user} newsCount={news.length} tasksCount={tasks.length} catalogCount={catalog.length}/>}
-          {tab==='catalog'&& <Catalog user={user} items={catalog} cart={cart} setCart={setCart} openCart={()=>setOpenCart(true)}/>}
-          {tab==='tasks'  && <Tasks tasks={tasks} user={user} setTab={setTab} refreshUserPoints={refreshUserPoints}/>}
-          {tab==='news'   && <News news={news} rules={rules}/>}
-          {tab==='me'     && (
-            <div className="space-y-4">
-              <div className="card">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-slate-500">พนักงาน</div>
-                    <div className="text-xl font-semibold">{user.name} • {user.id}</div>
-                    <div className="text-sm text-slate-500">สาขา: {user.branch||'-'} • ตำแหน่ง: {user.role}</div>
-                  </div>
-                  <div className="chip">คะแนน {fmt.format(user.points)}</div>
-                </div>
-              </div>
-            </div>
-          )}
-          {tab==='admin'  && (user?.role?.toLowerCase()==='admin'
-            ? <Admin catalog={catalog} setCatalog={setCatalog}/>
-            : <div className="card">ไม่อนุญาต</div>)}
-        </main>
-
-        <CartModal open={openCart} cart={cart} setCart={setCart} user={user}
-          onClose={()=>setOpenCart(false)}
-          onOK={async()=>{ setCart([]); await refreshUserPoints(); }}/>
-
-        {/* bottom nav mobile */}
-        <nav className="mnav md:hidden">
-          <div className="max-w-6xl mx-auto px-2 py-2 grid grid-cols-5 gap-2">
-            {mTabs.map(x=>(
-              <button key={x.id} className={'btn ' + (tab===x.id?'active':'btn-ghost')} onClick={()=>setTab(x.id)}>
-                <div>{x.ico}</div>
-                <div className="text-[11px] -mt-1">{x.label}</div>
-              </button>
-            ))}
-          </div>
-        </nav>
       </div>
     );
   }
