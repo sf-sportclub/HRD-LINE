@@ -40,6 +40,7 @@
         radial-gradient(80% 120% at 90% 10%, rgba(245,158,11,.12) 0%, rgba(245,158,11,0) 60%),
         var(--bg);
     }
+    /* Mobile bottom bar */
     .mobile-tabbar{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--ring);
                     display:flex; justify-content:space-around; padding:.5rem .25rem; z-index:50; }
     .mobile-tabbar button{ flex:1; display:flex; flex-direction:column; align-items:center; font-size:.75rem; gap:.15rem; padding:.4rem .2rem; border-radius:.75rem; }
@@ -104,6 +105,66 @@
     return isUrl ? <img src={src} alt={alt} className="h-14 w-14 object-cover rounded-lg"/> : <div className="text-4xl">{src||'🎁'}</div>;
   };
 
+  /* ============ BirthDatePicker (ใหม่) ============ */
+  function BirthDatePicker({ value, onChange, yearsBack = 100 }) {
+    const today = new Date();
+    const parse = (v) => {
+      if (!v) return [today.getFullYear() - 20, 1, 1];
+      const [yy, mm, dd] = v.split('-').map(Number);
+      return [yy || today.getFullYear() - 20, mm || 1, dd || 1];
+    };
+
+    const [initY, initM, initD] = parse(value);
+    const [y, setY] = React.useState(initY);
+    const [m, setM] = React.useState(initM);
+    const [d, setD] = React.useState(initD);
+
+    const years = React.useMemo(() => {
+      const list = [];
+      for (let i = 0; i <= yearsBack; i++) list.push(today.getFullYear() - i);
+      return list;
+    }, [yearsBack]);
+
+    const months = [
+      { id: 1, name: 'มกราคม' }, { id: 2, name: 'กุมภาพันธ์' }, { id: 3, name: 'มีนาคม' },
+      { id: 4, name: 'เมษายน' }, { id: 5, name: 'พฤษภาคม' }, { id: 6, name: 'มิถุนายน' },
+      { id: 7, name: 'กรกฎาคม' }, { id: 8, name: 'สิงหาคม' }, { id: 9, name: 'กันยายน' },
+      { id:10, name: 'ตุลาคม' },  { id:11, name: 'พฤศจิกายน' }, { id:12, name: 'ธันวาคม' },
+    ];
+
+    const daysInMonth = (yy, mm) => new Date(yy, mm, 0).getDate();
+
+    React.useEffect(() => {
+      const maxD = daysInMonth(y, m);
+      if (d > maxD) setD(maxD);
+    }, [y, m]);
+
+    React.useEffect(() => {
+      const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      onChange?.(iso);
+    }, [y, m, d]);
+
+    return (
+      <div className="grid grid-cols-3 gap-2">
+        <select className="input" value={d} onChange={e => setD(+e.target.value)}>
+          {Array.from({ length: daysInMonth(y, m) }, (_, i) => i + 1).map(n =>
+            <option key={n} value={n}>{n}</option>
+          )}
+        </select>
+        <select className="input" value={m} onChange={e => setM(+e.target.value)}>
+          {months.map(mm =>
+            <option key={mm.id} value={mm.id}>{mm.name}</option>
+          )}
+        </select>
+        <select className="input" value={y} onChange={e => setY(+e.target.value)}>
+          {years.map(yy =>
+            <option key={yy} value={yy}>{yy} (พ.ศ. {yy + 543})</option>
+          )}
+        </select>
+      </div>
+    );
+  }
+
   /* ============ AUTH ============ */
   function Login({ onOK, openRegister, openForgot, openChangePwd }){
     const [u,setU]=useState(''), [p,setP]=useState(''), [err,setErr]=useState(''), [busy,setBusy]=useState(false);
@@ -121,7 +182,7 @@
             <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-amber-500 grid place-items-center text-white text-xl shadow-lg">🏆</div>
             <div className="font-semibold">เข้าสู่ระบบ HRD Rewards</div>
           </div>
-          <p className="text-sm text-slate-600 mb-4">กรอก <b>username/password</b></p>
+          <p className="text-sm text-slate-600 mb-4">กรอก <b>username/password</b> จาก Sheet1 (คอลัมน์ I,J)</p>
           <div className="space-y-3">
             <Field label="Username"><input className="input" value={u} onChange={e=>setU(e.target.value)} /></Field>
             <Field label="Password"><PasswordInput value={p} onChange={e=>setP(e.target.value)} /></Field>
@@ -154,10 +215,6 @@
       const r = await apiRegister(f); if(!r.ok) return setErr(r.message||'สมัครไม่สำเร็จ');
       alert('สมัครสำเร็จ! โปรดเข้าสู่ระบบ'); back();
     };
-
-    // ค่าบน input[type=date] ต้องเป็น YYYY-MM-DD; จำกัดไม่ให้เลือกอนาคต
-    const todayISO = new Date().toISOString().split('T')[0];
-
     return (
       <div className="min-h-screen grid place-items-center px-4">
         <div className="w-full max-w-lg card">
@@ -183,19 +240,11 @@
                 <>
                   <Field label="คำนำหน้า"><input className="input" value={f.title} onChange={e=>setF({...f,title:e.target.value})}/></Field>
                   <Field label="ชื่อ-นามสกุล"><input className="input" value={f.name} onChange={e=>setF({...f,name:e.target.value})}/></Field>
-
-                  {/*** เปลี่ยนเป็น Date Picker ***/}
-                  <Field label="วันเกิด (เลือกจากปฏิทิน)">
-                    <input
-                      type="date"
-                      className="input"
-                      value={f.dob}
-                      onChange={e=>setF({...f,dob:e.target.value})}
-                      max={todayISO}
-                    />
-                  </Field>
                 </>
               )}
+              <Field label="วันเกิด">
+                <BirthDatePicker value={f.dob} onChange={(iso)=>setF({...f,dob:iso})} />
+              </Field>
               <Field label="Email *"><input className="input" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></Field>
               <Field label="Username *"><input className="input" value={f.username} onChange={e=>setF({...f,username:e.target.value})}/></Field>
               <Field label="Password *"><PasswordInput value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></Field>
@@ -213,15 +262,10 @@
   }
   const Forgot = ({ back })=>{
     const [emp,setEmp]=useState(''), [email,setEmail]=useState(''), [err,setErr]=useState('');
-    const [busy,setBusy]=useState(false);
     const submit = async()=>{
-      if(busy) return;
-      setErr(''); setBusy(true);
-      const r = await apiForgot(emp.trim(), email.trim());
-      if(!r.ok) setErr(r.message||'ดำเนินการไม่สำเร็จ');
-      else alert(r.emailed?'ส่งรหัสชั่วคราวไปที่อีเมลแล้ว':'รีเซ็ตสำเร็จ (ส่งอีเมลไม่สำเร็จ)');
-      setBusy(false);
-      if(r.ok) back();
+      setErr(''); const r = await apiForgot(emp.trim(), email.trim());
+      if(!r.ok) return setErr(r.message||'ดำเนินการไม่สำเร็จ');
+      alert(r.emailed?'ส่งรหัสชั่วคราวไปที่อีเมลแล้ว':'รีเซ็ตสำเร็จ (ส่งอีเมลไม่สำเร็จ)'); back();
     };
     return (
       <div className="min-h-screen grid place-items-center px-4">
@@ -231,7 +275,7 @@
           <Field label="Email (ตามคอลัมน์ H)"><input className="input" value={email} onChange={e=>setEmail(e.target.value)} /></Field>
           {err && <div className="text-sm text-rose-600">{err}</div>}
           <div className="flex gap-2">
-            <button className="btn btn-primary disabled:opacity-50" disabled={busy} onClick={submit}>{busy?'กำลังส่ง...':'ส่งคำขอ'}</button>
+            <button className="btn btn-primary" onClick={submit}>ส่งคำขอ</button>
             <button className="btn btn-ghost" onClick={back}>กลับ</button>
           </div>
         </div>
@@ -240,16 +284,12 @@
   };
   const ChangePassword = ({ back })=>{
     const [f,setF]=useState({ employeeId:'', username:'', oldPassword:'', newPassword:'', newPassword2:'' });
-    const [err,setErr]=useState(''); const [busy,setBusy]=useState(false);
+    const [err,setErr]=useState('');
     const submit = async()=>{
-      if(busy) return;
       setErr('');
       if(!f.employeeId||!f.username||!f.oldPassword||!f.newPassword||!f.newPassword2) return setErr('กรอกข้อมูลให้ครบ');
       if(f.newPassword!==f.newPassword2) return setErr('ยืนยันรหัสผ่านไม่ตรงกัน');
-      setBusy(true);
-      const r = await apiChangePwd(f); 
-      setBusy(false);
-      if(!r.ok) return setErr(r.message||'เปลี่ยนรหัสไม่สำเร็จ');
+      const r = await apiChangePwd(f); if(!r.ok) return setErr(r.message||'เปลี่ยนรหัสไม่สำเร็จ');
       alert('เปลี่ยนรหัสสำเร็จ! โปรดเข้าสู่ระบบใหม่'); back();
     };
     return (
@@ -263,7 +303,7 @@
           <Field label="ยืนยันรหัสผ่านใหม่"><PasswordInput value={f.newPassword2} onChange={e=>setF({...f,newPassword2:e.target.value})}/></Field>
           {err && <div className="text-sm text-rose-600">{err}</div>}
           <div className="flex gap-2">
-            <button className="btn btn-primary disabled:opacity-50" disabled={busy} onClick={submit}>{busy?'กำลังบันทึก...':'ยืนยัน'}</button>
+            <button className="btn btn-primary" onClick={submit}>ยืนยัน</button>
             <button className="btn btn-ghost" onClick={back}>กลับ</button>
           </div>
         </div>
@@ -377,19 +417,18 @@
   );
 
   const Tasks = ({ tasks, user, setTab })=>{
-    const [open,setOpen]=useState(null), [date,setDate]=useState(''), [img,setImg]=useState(null), [note,setNote]=useState('');
-    const [busy,setBusy]=useState(false);
+    const [open,setOpen]=useState(null), [date,setDate]=useState(''), [img,setImg]=useState(null);
+    const [note,setNote]=useState('');
+    const [sending,setSending]=useState(false);
     const fileToBase64 = f => new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(f); });
     const submit = async()=>{
-      if(busy) return;
       if(!open||!date) return alert('กรุณาใส่วันที่');
-      setBusy(true);
+      setSending(true);
       let b64=''; if(img) b64=await fileToBase64(img);
-      const r = await apiSubmitTask({ taskTitle:open.title, employeeId:user.id, date, imageBase64:b64, note });
-      setBusy(false);
+      const r = await apiSubmitTask({ taskTitle:open, employeeId:user.id, date, imageBase64:b64, note });
+      setSending(false);
       if(!r.ok) return alert(r.message||'ส่งภารกิจไม่สำเร็จ');
-      alert(`ส่งภารกิจเรียบร้อย ได้รับ +${r.points||r.pointsEarned||open.points||0} แต้ม`);
-      setOpen(null); setDate(''); setImg(null); setNote(''); setTab('home');
+      alert('ส่งภารกิจเรียบร้อย'); setOpen(null); setDate(''); setImg(null); setNote(''); setTab('home');
     };
     return (
       <div className="space-y-4 pb-16">
@@ -399,12 +438,9 @@
             <ul className="grid sm:grid-cols-2 gap-2">
               {tasks.map((t,i)=>(
                 <li key={i} className="border rounded-xl p-3">
-                  <div className="font-medium flex items-center justify-between">
-                    <span>{t.title}</span>
-                    {t.points!=null && <span className="chip">+{t.points} แต้ม</span>}
-                  </div>
+                  <div className="font-medium">{t.title}</div>
                   <div className="text-sm text-slate-600">{t.detail}</div>
-                  <button className="btn btn-primary mt-2" onClick={()=>setOpen({title:t.title, points:t.points})}>ส่งภารกิจนี้</button>
+                  <button className="btn btn-primary mt-2" onClick={()=>setOpen(t.title)}>ส่งภารกิจนี้</button>
                 </li>
               ))}
             </ul>
@@ -415,22 +451,17 @@
           <div className="fixed inset-0 bg-black/40 grid place-items-center p-4 z-30">
             <div className="w-full max-w-lg card">
               <div className="flex items-center justify-between mb-2">
-                <div className="font-semibold flex items-center gap-2">
-                  <span>ส่งภารกิจ: {open.title}</span>
-                  {open.points!=null && <span className="chip">+{open.points} แต้ม</span>}
-                </div>
-                <button className="btn btn-ghost" onClick={()=>setOpen(null)}>ปิด</button>
+                <div className="font-semibold">ส่งภารกิจ: {open}</div>
+                <button className="btn btn-ghost" onClick={()=>!sending && setOpen(null)}>ปิด</button>
               </div>
               <div className="space-y-3">
                 <Field label="รหัสพนักงาน"><input className="input" value={user.id} disabled/></Field>
                 <Field label="วันที่"><input type="date" className="input" value={date} onChange={e=>setDate(e.target.value)}/></Field>
                 <Field label="อัปโหลดรูปหลักฐาน (ถ้ามี)"><input type="file" accept="image/*" onChange={e=>setImg(e.target.files?.[0]||null)} /></Field>
-                <Field label="รายละเอียดเพิ่มเติม (ตัวเลือก)">
-                  <input className="input" placeholder="ระบุข้อความสั้น ๆ (ตัวเลือก)" value={note} onChange={e=>setNote(e.target.value)} />
-                </Field>
+                <Field label="รายละเอียดเพิ่มเติม (ตัวเลือก)"><input className="input" placeholder="ระบุข้อความเพิ่มเติม (ถ้ามี)" value={note} onChange={e=>setNote(e.target.value)} /></Field>
                 <div className="text-right">
-                  <button className="btn btn-primary disabled:opacity-50" disabled={busy} onClick={submit}>
-                    {busy?'กำลังส่งข้อมูล...':'ส่งข้อมูล'}
+                  <button className="btn btn-primary disabled:opacity-50" disabled={sending} onClick={submit}>
+                    {sending ? 'กำลังส่ง...' : 'ส่งข้อมูล'}
                   </button>
                 </div>
               </div>
@@ -574,13 +605,9 @@
     const total = cart.reduce((s,c)=>s+(c.points||0)*(c.qty||1),0);
     const updateQty = (id,delta)=> setCart(cur=>cur.map(x=>x.id===id?{...x,qty:Math.max(1,(x.qty||1)+delta)}:x));
     const remove = id => setCart(cur=>cur.filter(x=>x.id!==id));
-    const [busy,setBusy]=useState(false);
     const redeem = async()=>{
-      if(busy) return;
-      setBusy(true);
       const note = cart.map(c=>`${c.name} x${c.qty}`).join(', ');
       const r = await apiRedeem(user.id, total, note);
-      setBusy(false);
       if(!r.ok) return alert(r.message||'ตัดแต้มไม่สำเร็จ');
       alert('แลกสำเร็จ');
       onOK();
@@ -621,9 +648,7 @@
             </div>
           </div>
           <div className="mt-3 text-right">
-            <button className="btn btn-primary disabled:opacity-50" disabled={!cart.length || total>user.points || busy} onClick={redeem}>
-              {busy?'กำลังแลก...':'ยืนยันแลก'}
-            </button>
+            <button className="btn btn-primary" disabled={!cart.length || total>user.points} onClick={redeem}>ยืนยันแลก</button>
           </div>
         </div>
       </div>
@@ -709,7 +734,7 @@
             </div>
           )}
           {tab==='admin'   && (user?.role?.toLowerCase()==='admin'
-            ? <Admin catalog={catalog} setCatalog={setCatalog} />
+            ? <Admin catalog={catalog} setCatalog={setCatalog} news={news} setNews={setNews} rules={rules} setRules={setRules} tasks={tasks} setTasks={setTasks}/>
             : <div className="card">ไม่อนุญาต</div>)}
         </main>
 
