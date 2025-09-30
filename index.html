@@ -60,7 +60,7 @@
   const fmt = new Intl.NumberFormat('th-TH');
 
   /* ============ CONFIG / API ============ */
-  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyv-85PyEWTfMfMvAYHoZzLqhP7to_LheJM9NEgjktehCOBRhGLcpqHuoTFk7LYGubk/exec';
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbw1mj53Knd_z49VF9ftuP_5LtiSat9oWdkOcD2-RUswS6TqokguYfzrIgyWv663PLzB/exec';
 
   async function callApi(action, payload){
     const res = await fetch(WEBAPP_URL, { method:'POST', body: JSON.stringify({ action, payload }) });
